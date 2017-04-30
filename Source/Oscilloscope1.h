@@ -148,24 +148,35 @@ public:
         memmove(oscillosopeHeightFifo + 1, oscillosopeHeightFifo, (oscilloscopeRes - 1) * sizeof (float));
         oscillosopeHeightFifo[0] = lineHeight;
         
+        const float distanceBetweenCubes = 0.08;
+        const float heightZoom = 100.0;
+        const float cubeWidth = 0.03;
+        
         glPushMatrix();
-        glTranslated(-(0.08 * (float)oscilloscopeRes) / 2.0, 0.0, 0.0);
+        glTranslated(-(distanceBetweenCubes * (float)oscilloscopeRes) / 2.0, 0.0, 0.0);
         glColor3f(0.4, 5.0, 8.0);
         for (int i = 0; i < oscilloscopeRes; ++i)
         {
             
             glPushMatrix();
-            glTranslated((float) i * 0.08, 0.0, 0.0);
-            glScalef(1.0, oscillosopeHeightFifo[i] * 16.0, 1.0);
-            glutSolidCube(0.1);
+            glTranslated((float) i * distanceBetweenCubes, 0.0, 0.0);
+            glScalef(1.0, oscillosopeHeightFifo[i] * heightZoom, 1.0);
+            glutSolidCube(cubeWidth);
+            
+            glPopMatrix();
             
             // CUBIC INTERPOLATION HACK
-            /*
-             glPushMatrix();
-             glRotatef(-90.0, 1.0, 1.0, 1.0);
-             glutSolidCube(0.1);
-             glPopMatrix();
-             */
+            
+//            glPushMatrix();
+//            glRotatef(-90.0, 1.0, 1.0, 1.0);
+//            glutSolidCube(0.1);
+//            glPopMatrix();
+            
+            glPushMatrix();
+            glTranslated((float) i * distanceBetweenCubes, 0.0, 0.0);
+            glScalef(1.0, 1.0, oscillosopeHeightFifo[i] * heightZoom);
+            glutSolidCube(cubeWidth);
+            
  
             glPopMatrix();
             

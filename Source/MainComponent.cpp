@@ -8,6 +8,7 @@
 
 #include "../JuceLibraryCode/JuceHeader.h"
 #include "Oscilloscope1.h"
+#include "Oscilloscope.h"
 #include "RingBuffer.h"
 
 //==============================================================================
@@ -45,6 +46,9 @@ public:
         stopButton.addListener (this);
         stopButton.setColour (TextButton::buttonColourId, Colours::red);
         stopButton.setEnabled (false);
+        
+        addAndMakeVisible (&oscilloscope);
+        oscilloscope.start();
         
         setSize (800, 600); // Set Component Size
     }
@@ -133,7 +137,8 @@ public:
         playButton.setBounds (10, 40, w - 20, 20);
         stopButton.setBounds (10, 70, w - 20, 20);
         
-        oscilloscope1->setBounds (0, 100, w, h - 100);
+        //oscilloscope1->setBounds (0, 100, w, h - 100);
+        oscilloscope.setBounds (0, 100, w, h - 100);
     }
     
     void changeListenerCallback (ChangeBroadcaster* source) override
@@ -275,6 +280,8 @@ private:
     
     // Visualizers
     Oscilloscope1 * oscilloscope1;
+    
+    Oscilloscope oscilloscope;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (MainContentComponent)
 };

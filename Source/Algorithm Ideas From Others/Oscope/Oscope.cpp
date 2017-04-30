@@ -31,6 +31,7 @@ std::string get_file_contents(const char *filename)
 #define SONG_FILE "Moonlight.mp3"
 
 //Vertex shader
+// Makes all the XY values of the vertices have a Z value of 0.0.
 const GLchar* vertexSource =
     "#version 150 core\n"
     "in vec2 position;"
@@ -69,10 +70,16 @@ int main() {
 	GLuint vbo;
 	glGenBuffers(1, &vbo);
 
+    // Defines a square using two triangles
 	float vertices[] = {
-		 -1.0f,  1.0f,
+		// X and Y values
+        
+        // Triangle 1
+        -1.0f,  1.0f,
 		 1.0f, 1.0f, 
 		1.0f, -1.0f,
+        
+        // Triangle 2
 		-1.0f,1.0f,
 		-1.0f,-1.0f,
 		1.0f,-1.0f
@@ -80,6 +87,9 @@ int main() {
 
 	glBindBuffer(GL_ARRAY_BUFFER, vbo);
 	glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+                                        // Don't we want GL_DYNAMIC_DRAW since this
+                                        // vertex data will be changing alot??
+                                        // test this
 
 	GLuint vertexShader = glCreateShader(GL_VERTEX_SHADER);
     glShaderSource(vertexShader, 1, &vertexSource, NULL);
