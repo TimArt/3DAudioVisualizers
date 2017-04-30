@@ -68,47 +68,12 @@ public:
      */
     void newOpenGLContextCreated() override
     {
-        // Vertex Array Object
-        /*GLuint vao;
-        glGenVertexArrays (1, &vao);
-        glBindVertexArray(vao);
-        
-        // Vertex Buffer Object
-        GLuint vbo;
-        glGenBuffers(1, &vbo);
-        
-        // Defines a square using two triangles
-        GLfloat vertices[] = {
-            // X and Y values
-            
-            // Triangle 1
-            -1.0f,  1.0f,
-            1.0f, 1.0f,
-            1.0f, -1.0f,
-            
-            // Triangle 2
-            -1.0f,1.0f,
-            -1.0f,-1.0f,
-            1.0f,-1.0f
-        };
-        
-        
-        glBindBuffer(GL_ARRAY_BUFFER, vbo);
-        glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-                                    // Don't we want GL_DYNAMIC_DRAW since this
-                                    // vertex data will be changing alot??
-                                    // test this
-        
-        */
         // Setup Shaders
         createShaders();
         
-        // Specify the layout of the vertex data
-        //GLint posAttrib = glGetAttribLocation(shaderProgram, "position");
-        //glEnableVertexAttribArray(posAttrib);
-        //glVertexAttribPointer(posAttrib, 2, GL_FLOAT, GL_FALSE, 0, 0);
-        
-        
+        // Setup Buffer Objects
+        openGLContext.extensions.glGenBuffers (1, &VBO); // Vertex Buffer Object
+        openGLContext.extensions.glGenBuffers (1, &EBO); // Element Buffer Object
     }
     
     /** Called when done rendering OpenGL, as an OpenGLContext object is closing.
@@ -117,7 +82,7 @@ public:
     void openGLContextClosing() override
     {
         shader = nullptr;
-        attributes = nullptr;
+        //attributes = nullptr;
         uniforms = nullptr;
     }
     
@@ -128,7 +93,7 @@ public:
     {
         jassert (OpenGLHelpers::isContextActive());
         
-        // Setup Viewport and Defailt Background
+        // Setup Viewport and Default Background
         const float desktopScale = (float) openGLContext.getRenderingScale();
         OpenGLHelpers::clear (getLookAndFeel().findColour (ResizableWindow::backgroundColourId));
         
@@ -138,7 +103,7 @@ public:
         glViewport (0, 0, roundToInt (desktopScale * getWidth()), roundToInt (desktopScale * getHeight()));
         
         
-        // Setup Shader
+        // Use Shader Program that's been defined
         shader->use();
         
         // Setup the Uniforms for use in the Shader
@@ -148,47 +113,54 @@ public:
         if (uniforms->viewMatrix != nullptr)
             uniforms->viewMatrix->setMatrix4 (getViewMatrix().mat, 1, false);
         
-        // Draw Square (draws a square made up of two triangles)
+        
+        // Define Vertices for a Square
         GLfloat vertices[] = {
-            // X, Y, Z values
-            
-            // Triangle 1
-            -1.0f,  1.0f,  0.0f,
-             1.0f,  1.0f,  0.0f,
-             1.0f, -1.0f,  0.0f,
-            
-            // Triangle 2
-            -1.0f,  1.0f,  0.0f,
-            -1.0f, -1.0f,  0.0f,
-             1.0f, -1.0f,  0.0f
+            0.5f,  0.5f, 0.0f,  // Top Right
+            0.5f, -0.5f, 0.0f,  // Bottom Right
+            -0.5f, -0.5f, 0.0f,  // Bottom Left
+            -0.5f,  0.5f, 0.0f   // Top Left
         };
-        //glDrawArrays(GL_TRIANGLES, 0, 6);
-        GLuint vertexBuffer;//, indexBuffer;
-        openGLContext.extensions.glGenBuffers (1, &vertexBuffer);
-        openGLContext.extensions.glBindBuffer (GL_ARRAY_BUFFER, vertexBuffer);
-        openGLContext.extensions.glBufferData(GL_ARRAY_BUFFER, sizeof (vertices), vertices, GL_STATIC_DRAW);
-                                                                // Don't we want GL_DYNAMIC_DRAW since this
-                                                                // vertex data will be changing alot??
-                                                                // test this
+        // Define Which Vertex Indexes Make the Square
+        GLuint indices[] = {  // Note that we start from 0!
+            0, 1, 3,   // First Triangle
+            1, 2, 3    // Second Triangle
+        };
         
-        /*openGLContext.extensions.glGenBuffers (1, &indexBuffer);
-        openGLContext.extensions.glBindBuffer (GL_ELEMENT_ARRAY_BUFFER, indexBuffer);
-        openGLContext.extensions.glBufferData (GL_ELEMENT_ARRAY_BUFFER, numIndices * (int) sizeof (juce::uint32),
-                                               shape.mesh.indices.getRawDataPointer(), GL_STATIC_DRAW);
-        */
-
+        // Vertex Array Object stuff for later
+        //openGLContext.extensions.glGenVertexArrays(1, &VAO);
+        //openGLContext.extensions.glBindVertexArray(VAO);
         
-        /*openGLContext.extensions.glBindBuffer (GL_ARRAY_BUFFER, vertexBuffer);
-        openGLContext.extensions.glBindBuffer (GL_ELEMENT_ARRAY_BUFFER, indexBuffer);*/
-        attributes->enable (openGLContext);
-        glDrawArrays(GL_TRIANGLES, 0, 6);
-        //glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
-        attributes->disable (openGLContext);
+        // VBO (Vertex Buffer Object) - Bind and Write to Buffer
+        openGLContext.extensions.glBindBuffer (GL_ARRAY_BUFFER, VBO);
+        openGLContext.extensions.glBufferData (GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STREAM_DRAW);
+                                                                    // GL_DYNAMIC_DRAW or GL_STREAM_DRAW
+                                                                    // Don't we want GL_DYNAMIC_DRAW since this
+                                                                    // vertex data will be changing alot??
+                                                                    // test this
         
+        // EBO (Element Buffer Object) - Bind and Write to Buffer
+        openGLContext.extensions.glBindBuffer (GL_ELEMENT_ARRAY_BUFFER, EBO);
+        openGLContext.extensions.glBufferData (GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STREAM_DRAW);
+                                                                    // GL_DYNAMIC_DRAW or GL_STREAM_DRAW
+                                                                    // Don't we want GL_DYNAMIC_DRAW since this
+                                                                    // vertex data will be changing alot??
+                                                                    // test this
+        
+        // Setup Vertex Attributes
+        openGLContext.extensions.glVertexAttribPointer (0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(GLfloat), (GLvoid*)0);
+        openGLContext.extensions.glEnableVertexAttribArray (0);
+    
+        // Draw Vertices
+        //glDrawArrays (GL_TRIANGLES, 0, 6); // For just VBO's (Vertex Buffer Objects)
+        glDrawElements (GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0); // For EBO's (Element Buffer Objects) (Indices)
+        
+    
         
         // Reset the element buffers so child Components draw correctly
         openGLContext.extensions.glBindBuffer (GL_ARRAY_BUFFER, 0);
         openGLContext.extensions.glBindBuffer (GL_ELEMENT_ARRAY_BUFFER, 0);
+        //openGLContext.extensions.glBindVertexArray(0);
     }
     
     
@@ -235,8 +207,6 @@ private:
     Matrix3D<float> getViewMatrix() const
     {
         Matrix3D<float> viewMatrix (Vector3D<float> (0.0f, 0.0f, -10.0f));
-       // Matrix3D<float> rotationMatrix
-        //= viewMatrix.rotated (Vector3D<float> (-0.3f, 5.0f * std::sin (getFrameCounter() * 0.01f), 0.0f));
         Matrix3D<float> rotationMatrix = draggableOrientation.getRotationMatrix();
         
         return rotationMatrix * viewMatrix;
@@ -247,26 +217,27 @@ private:
     void createShaders()
     {
         vertexShader =
-        "attribute vec4 position;\n"
-        "attribute vec4 sourceColour;\n"
-        "attribute vec2 texureCoordIn;\n"
+        "attribute vec3 position;\n"
+        /*"attribute vec4 sourceColour;\n"
+        "attribute vec2 texureCoordIn;\n"*/
         "\n"
         "uniform mat4 projectionMatrix;\n"
         "uniform mat4 viewMatrix;\n"
         "\n"
-        "varying vec4 destinationColour;\n"
-        "varying vec2 textureCoordOut;\n"
+        //"varying vec4 destinationColour;\n"
+        //"varying vec2 textureCoordOut;\n"
         "\n"
         "void main()\n"
         "{\n"
-        "    destinationColour = sourceColour;\n"
-        "    textureCoordOut = texureCoordIn;\n"
-        "    gl_Position = projectionMatrix * viewMatrix * position;\n"
+        //"    destinationColour = sourceColour;\n"
+        //"    textureCoordOut = texureCoordIn;\n"
+        "    gl_Position = projectionMatrix * viewMatrix * vec4(position, 1.0);\n"
+        //"    gl_Position = projectionMatrix * viewMatrix * gl_Vertex;\n"
         "}\n";
         
         fragmentShader =
-        "varying vec4 destinationColour;\n"
-        "varying vec2 textureCoordOut;\n"
+        //"varying vec4 destinationColour;\n"
+        //"varying vec2 textureCoordOut;\n"
         "\n"
         "void main()\n"
         "{\n"
@@ -281,13 +252,13 @@ private:
             && newShader->addFragmentShader (OpenGLHelpers::translateFragmentShaderToV3 (fragmentShader))
             && newShader->link())
         {
-            attributes = nullptr;
+            //attributes = nullptr;
             uniforms = nullptr;
             
             shader = newShader;
             shader->use();
             
-            attributes = new Attributes (openGLContext, *shader);
+            //attributes = new Attributes (openGLContext, *shader);
             uniforms   = new Uniforms (openGLContext, *shader);
             
             statusText = "GLSL: v" + String (OpenGLShaderProgram::getLanguageVersion(), 2);
@@ -311,8 +282,8 @@ private:
     };
     
     //==============================================================================
-    // This class just manages the attributes that the shaders use.
-    struct Attributes
+    // This class just manages the vertex attributes that the shaders use.
+    /*struct Attributes
     {
         Attributes (OpenGLContext& openGLContext, OpenGLShaderProgram& shaderProgram)
         {
@@ -326,7 +297,7 @@ private:
         {
             if (position != nullptr)
             {
-                openGLContext.extensions.glVertexAttribPointer (position->attributeID, 3, GL_FLOAT, GL_FALSE, sizeof (Vertex), 0);
+                openGLContext.extensions.glVertexAttribPointer (position->attributeID, 3, GL_FLOAT, GL_FALSE, sizeof (Vertex), (GLvoid*)0);
                 openGLContext.extensions.glEnableVertexAttribArray (position->attributeID);
             }
             
@@ -369,7 +340,7 @@ private:
             
             return new OpenGLShaderProgram::Attribute (shader, attributeName);
         }
-    };
+    };*/
     
     //==============================================================================
     // This class just manages the uniform values that the demo shaders use.
@@ -398,9 +369,10 @@ private:
     
     // OpenGL Variables
     OpenGLContext openGLContext;
+    GLuint VBO, VAO, EBO;
     
     ScopedPointer<OpenGLShaderProgram> shader;
-    ScopedPointer<Attributes> attributes;   // The private structs handle all attributes
+    //ScopedPointer<Attributes> attributes;   // The private structs handle all attributes
     ScopedPointer<Uniforms> uniforms;       // The private structs handle all uniforms
     
     const char* vertexShader;
