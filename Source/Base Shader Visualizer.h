@@ -10,7 +10,6 @@
 #define Oscilloscope_h
 
 #include "../JuceLibraryCode/JuceHeader.h"
-#include <fstream>
 
 /** This Oscilloscope uses a Shader Based Implementation.
  */
@@ -21,10 +20,8 @@ class Oscilloscope :    public Component,
     
 public:
     
-    Oscilloscope (RingBuffer<GLfloat> * audioBuffer)
+    Oscilloscope()
     {
-        this->audioBuffer = audioBuffer;
-        
         // Set default 3D orientation
         draggableOrientation.reset(Vector3D<float>(0.0, 1.0, 0.0));
         
@@ -46,9 +43,6 @@ public:
         // Turn of OpenGL
         openGLContext.setContinuousRepainting (false);
         openGLContext.detach();
-        
-        // Detach AudioBuffer
-        audioBuffer = nullptr;
     }
     
     //==========================================================================
@@ -100,49 +94,46 @@ public:
     {
         jassert (OpenGLHelpers::isContextActive());
         
-        // Setup Viewport
-        const float renderingScale = (float) openGLContext.getRenderingScale();
-        glViewport (0, 0, roundToInt (renderingScale * getWidth()), roundToInt (renderingScale * getHeight()));
-        
-        // Set background Color
+        // Setup Viewport and Default Background
+        const float desktopScale = (float) openGLContext.getRenderingScale();
         OpenGLHelpers::clear (getLookAndFeel().findColour (ResizableWindow::backgroundColourId));
         
-        // Enable Alpha Blending
         glEnable (GL_BLEND);
         glBlendFunc (GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        
+        glViewport (0, 0, roundToInt (desktopScale * getWidth()), roundToInt (desktopScale * getHeight()));
+        
         
         // Use Shader Program that's been defined
         shader->use();
         
         // Setup the Uniforms for use in the Shader
-        //if (uniforms->projectionMatrix != nullptr)
-        //    uniforms->projectionMatrix->setMatrix4 (getProjectionMatrix().mat, 1, false);
+        if (uniforms->projectionMatrix != nullptr)
+            uniforms->projectionMatrix->setMatrix4 (getProjectionMatrix().mat, 1, false);
         
-        //if (uniforms->viewMatrix != nullptr)
-        //    uniforms->viewMatrix->setMatrix4 (getViewMatrix().mat, 1, false);
-        
-        if (uniforms->resolution != nullptr)
-            uniforms->resolution->set ((GLfloat) renderingScale * getWidth(), (GLfloat) renderingScale * getHeight(), (GLfloat) renderingScale * getWidth() * getHeight());
-        
-        if (uniforms->time != nullptr)
-            uniforms->time->set ((GLfloat)clock() / (GLfloat)CLOCKS_PER_SEC);
-            
-        if (uniforms->audioSampleData != nullptr)
-            uniforms->audioSampleData->set (audioBuffer->readSamples (256, 1), 256);    // RingBuffer Channel 0 still doesn't work lolz what the crap
-        
+        if (uniforms->viewMatrix != nullptr)
+            uniforms->viewMatrix->setMatrix4 (getViewMatrix().mat, 1, false);
         
         
         // Define Vertices for a Square
         GLfloat vertices[] = {
-            1.0f,   1.0f,  0.0f,  // Top Right
-            1.0f,  -1.0f,  0.0f,  // Bottom Right
-            -1.0f, -1.0f,  0.0f,  // Bottom Left
-            -1.0f,  1.0f,  0.0f   // Top Left
+            0.5f,  0.5f, -0.5f,  // Top Right
+            0.5f, -0.5f, -0.5f,  // Bottom Right
+            -0.5f, -0.5f, -0.5f,  // Bottom Left
+            -0.5f,  0.5f, -0.5f,   // Top Left
+            
+            0.5f,  0.5f, 0.5f,  // Top Right
+            0.5f, -0.5f, 0.5f,  // Bottom Right
+            -0.5f, -0.5f, 0.5f,  // Bottom Left
+            -0.5f,  0.5f, 0.5f   // Top Left
         };
         // Define Which Vertex Indexes Make the Square
         GLuint indices[] = {  // Note that we start from 0!
             0, 1, 3,   // First Triangle
-            1, 2, 3    // Second Triangle
+            1, 2, 3,    // Second Triangle
+            
+            4, 5, 7,   // First Triangle
+            5, 6, 7    // Second Triangle
         };
         
         // Vertex Array Object stuff for later
@@ -171,7 +162,7 @@ public:
     
         // Draw Vertices
         //glDrawArrays (GL_TRIANGLES, 0, 6); // For just VBO's (Vertex Buffer Objects)
-        glDrawElements (GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0); // For EBO's (Element Buffer Objects) (Indices)
+        glDrawElements (GL_TRIANGLES, 12, GL_UNSIGNED_INT, 0); // For EBO's (Element Buffer Objects) (Indices)
         
     
         
@@ -215,22 +206,6 @@ private:
     //==========================================================================
     // OpenGL Functions
     
-    /** Used to Open a Shader file.
-     */
-    std::string getFileContents(const char *filename) {
-        std::ifstream inStream (filename, std::ios::in | std::ios::binary);
-        if (inStream) {
-            std::string contents;
-            inStream.seekg (0, std::ios::end);
-            contents.resize((unsigned int) inStream.tellg());
-            inStream.seekg (0, std::ios::beg);
-            inStream.read (&contents[0], contents.size());
-            inStream.close();
-            return (contents);
-        }
-        return "";
-    }
-    
     Matrix3D<float> getProjectionMatrix() const
     {
         float w = 1.0f / (0.5f + 0.1f);
@@ -265,40 +240,18 @@ private:
         "{\n"
         //"    destinationColour = sourceColour;\n"
         //"    textureCoordOut = texureCoordIn;\n"
-        "    gl_Position = vec4(position, 1.0);\n"
-        //"    gl_Position = projectionMatrix * viewMatrix * vec4(position, 1.0);\n"
+        "    gl_Position = projectionMatrix * viewMatrix * vec4(position, 1.0);\n"
+        //"    gl_Position = projectionMatrix * viewMatrix * gl_Vertex;\n"
         "}\n";
         
         fragmentShader =
         //"varying vec4 destinationColour;\n"
         //"varying vec2 textureCoordOut;\n"
-        "uniform vec3  resolution;\n"
-        "uniform float time;\n"
-        "uniform float audioSampleData[256];\n"
         "\n"
-        "void InterpolateValue(in float index, out float value)\n"
-        "{\n"
-        "   float norm = 255.0 / resolution.x * index;\n"
-        "   int Floor = int (floor (norm));\n"
-        "   int Ceil = int (ceil (norm));\n"
-        "   value = mix (audioSampleData[Floor], audioSampleData[Ceil], fract (norm));\n"
-        "}\n"
-        "\n"
-        "#define THICKNESS 0.008\n"
         "void main()\n"
         "{\n"
-        "    float x = gl_FragCoord.x / resolution.x;\n"
-        "    float y = gl_FragCoord.y / resolution.y;\n"
-        "\n"
-        "    float wave = 0.0;\n"
-        "    InterpolateValue (x * resolution.x, wave);\n"
-        "\n"
-        "    wave = 0.5 - wave / 3.0; // Centers Wave\n"
-        //"    vec4 colour = vec4(0.95, 0.57, 0.03, 0.7);\n"
-        //"    gl_FragColor = colour;\n"
-        "\n"
-        "float r = abs (THICKNESS / (wave-y));\n"
-        "gl_FragColor = vec4 (r - abs (r * 0.2 * sin (time / 5.0)), r - abs (r * 0.2 * sin (time / 7.0)), r - abs (r * 0.2 * sin (time / 9.0)), 1.0);\n"
+        "    vec4 colour = vec4(0.95, 0.57, 0.03, 0.7);\n"
+        "    gl_FragColor = colour;\n"
         "}\n";
         
         ScopedPointer<OpenGLShaderProgram> newShader (new OpenGLShaderProgram (openGLContext));
@@ -329,13 +282,13 @@ private:
     
     //==============================================================================
     // This struct represents a Vertex and its associated attributes
-    /*struct Vertex
+    struct Vertex
     {
         float position[3];
         float normal[3];
         float colour[4];
         float texCoord[2];
-    };*/
+    };
     
     //==============================================================================
     // This class just manages the vertex attributes that the shaders use.
@@ -404,17 +357,11 @@ private:
     {
         Uniforms (OpenGLContext& openGLContext, OpenGLShaderProgram& shaderProgram)
         {
-            //projectionMatrix = createUniform (openGLContext, shaderProgram, "projectionMatrix");
-            //viewMatrix       = createUniform (openGLContext, shaderProgram, "viewMatrix");
-            
-            resolution          = createUniform (openGLContext, shaderProgram, "resolution");
-            time                = createUniform (openGLContext, shaderProgram, "time");
-            audioSampleData     = createUniform (openGLContext, shaderProgram, "audioSampleData");
-            
+            projectionMatrix = createUniform (openGLContext, shaderProgram, "projectionMatrix");
+            viewMatrix       = createUniform (openGLContext, shaderProgram, "viewMatrix");
         }
         
-        //ScopedPointer<OpenGLShaderProgram::Uniform> projectionMatrix, viewMatrix;
-        ScopedPointer<OpenGLShaderProgram::Uniform> resolution, time, audioSampleData;
+        ScopedPointer<OpenGLShaderProgram::Uniform> projectionMatrix, viewMatrix;
         
     private:
         static OpenGLShaderProgram::Uniform* createUniform (OpenGLContext& openGLContext,
@@ -442,9 +389,6 @@ private:
     
     // GUI Interaction
     Draggable3DOrientation draggableOrientation;
-    
-    // Audio Buffer
-    RingBuffer<GLfloat> * audioBuffer;
     
     // If we wanted to optionally have an interchangeable shader system,
     // this would be fairly easy to add. Chack JUCE Demo -> OpenGLDemo.cpp for

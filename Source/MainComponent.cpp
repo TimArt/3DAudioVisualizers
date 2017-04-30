@@ -47,8 +47,8 @@ public:
         stopButton.setColour (TextButton::buttonColourId, Colours::red);
         stopButton.setEnabled (false);
         
-        addAndMakeVisible (&oscilloscope);
-        oscilloscope.start();
+        //addAndMakeVisible (&oscilloscope);
+        //oscilloscope.start();
         
         setSize (800, 600); // Set Component Size
     }
@@ -68,13 +68,17 @@ public:
         // Setup Audio Source
         audioTransportSource.prepareToPlay (samplesPerBlockExpected, sampleRate);
         
-        // Setup Ring Buffer for visualizer
-        ringBuffer = new RingBuffer<float> (samplesPerBlockExpected * 10, 2);   // Set default of 2 channels in the RingBuffer
+        // Setup Ring Buffer of GLfloat's for the visualizer to use
+        ringBuffer = new RingBuffer<GLfloat> (samplesPerBlockExpected * 10, 2);  // Set default of 2 channels in the RingBuffer
         
         // Setup Visualizers
-        oscilloscope1 = new Oscilloscope1 (ringBuffer);
-        addAndMakeVisible (oscilloscope1);
-        oscilloscope1->start();
+        //oscilloscope1 = new Oscilloscope1 (ringBuffer);
+        //addAndMakeVisible (oscilloscope1);
+        //oscilloscope1->start();
+        
+        oscilloscope = new Oscilloscope (ringBuffer);
+        addAndMakeVisible (oscilloscope);
+        oscilloscope->start();
     }
     
     /** Called after rendering Audio. 
@@ -82,12 +86,19 @@ public:
     void releaseResources() override
     {
         // DELETE Oscilloscope here (so make it not a scoped pointer so this works
-        if (oscilloscope1 != nullptr)
+        /*if (oscilloscope1 != nullptr)
         {
             oscilloscope1->stop();
         }
   
-        delete oscilloscope1;
+        delete oscilloscope1;*/
+        
+        if (oscilloscope != nullptr)
+        {
+            oscilloscope->stop();
+        }
+        
+        delete oscilloscope;
         
         audioTransportSource.releaseResources();
         delete ringBuffer;
@@ -138,7 +149,7 @@ public:
         stopButton.setBounds (10, 70, w - 20, 20);
         
         //oscilloscope1->setBounds (0, 100, w, h - 100);
-        oscilloscope.setBounds (0, 100, w, h - 100);
+        oscilloscope->setBounds (0, 100, w, h - 100);
     }
     
     void changeListenerCallback (ChangeBroadcaster* source) override
@@ -279,9 +290,9 @@ private:
     RingBuffer<float> * ringBuffer;
     
     // Visualizers
-    Oscilloscope1 * oscilloscope1;
+    //Oscilloscope1 * oscilloscope1;
     
-    Oscilloscope oscilloscope;
+    Oscilloscope * oscilloscope;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (MainContentComponent)
 };

@@ -22,7 +22,7 @@ class Oscilloscope1 :   public Component,
 {
 public:
     
-    Oscilloscope1 (RingBuffer<float> * audioBuffer)
+    Oscilloscope1 (RingBuffer<GLfloat> * audioBuffer)
     {
         this->audioBuffer = audioBuffer;
     
@@ -221,7 +221,7 @@ private:
     int oscopeFifoPos;
     
     // Input Audio Buffer
-    RingBuffer<float> * audioBuffer;
+    RingBuffer<GLfloat> * audioBuffer;
 
     Draggable3DOrientation draggableOrientation;
     OpenGLContext openGLContext;
