@@ -10,6 +10,7 @@
 #define Oscilloscope_h
 
 #include "../JuceLibraryCode/JuceHeader.h"
+#include "RingBuffer.h"
 #include <fstream>
 
 /** This Oscilloscope uses a Shader Based Implementation.
@@ -127,9 +128,9 @@ public:
             
             // Scale and view matrix
             Matrix3D<float> scale;
-            scale.mat[0] = 3.0;
-            scale.mat[5] = 3.0;
-            scale.mat[10] = 3.0;
+            scale.mat[0] = 2.0;
+            scale.mat[5] = 2.0;
+            scale.mat[10] = 2.0;
             Matrix3D<float> finalMatrix = scale * getViewMatrix();
             uniforms->viewMatrix->setMatrix4 (finalMatrix.mat, 1, false);
             
@@ -326,9 +327,9 @@ private:
         
         // User Defined Variables
         "#define WAVE_RENDERING_WIDTH 4.0f\n"
-        "#define WAVE_RENDERING_HEIGHT 5.0f\n"
+        "#define WAVE_RENDERING_HEIGHT 3.0f\n"
         "#define WAVE_WIDTH_RESOLUTION 50\n"
-        "#define WAVE_RADIUS 0.03f\n"
+        "#define WAVE_RADIUS 0.1f\n"
         "#define WAVE_GIRTH_RESOLUTION 5\n"
         "#define PI 3.1415926538f\n"
         

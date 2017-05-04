@@ -1,32 +1,29 @@
 //
-//  Oscilloscope.h
+//  Oscilloscope2D.h
 //  3DAudioVisualizers
 //
 //  Created by Tim Arterbury on 4/29/17.
 //
 //
 
-#ifndef Oscilloscope_h
-#define Oscilloscope_h
+#ifndef Oscilloscope2D_h
+#define Oscilloscope2D_h
 
 #include "../JuceLibraryCode/JuceHeader.h"
-#include <fstream>
+#include "RingBuffer.h"
 
-/** This Oscilloscope uses a Shader Based Implementation.
+/** This Oscilloscope2D uses a Shader Based Implementation.
  */
 
-class Oscilloscope :    public Component,
+class Oscilloscope2D :    public Component,
                         public OpenGLRenderer
 {
     
 public:
     
-    Oscilloscope (RingBuffer<GLfloat> * audioBuffer)
+    Oscilloscope2D (RingBuffer<GLfloat> * audioBuffer)
     {
         this->audioBuffer = audioBuffer;
-        
-        // Set default 3D orientation
-        draggableOrientation.reset(Vector3D<float>(0.0, 1.0, 0.0));
         
         // Attach and start OpenGL
         openGLContext.setRenderer(this);
@@ -41,7 +38,7 @@ public:
         statusLabel.setFont (Font (14.0f));
     }
     
-    ~Oscilloscope()
+    ~Oscilloscope2D()
     {
         // Turn of OpenGL
         openGLContext.setContinuousRepainting (false);
@@ -52,7 +49,7 @@ public:
     }
     
     //==========================================================================
-    // Oscilloscope Control Functions
+    // Oscilloscope2D Control Functions
     
     void start()
     {
@@ -115,14 +112,9 @@ public:
         shader->use();
         
         // Setup the Uniforms for use in the Shader
-        //if (uniforms->projectionMatrix != nullptr)
-        //    uniforms->projectionMatrix->setMatrix4 (getProjectionMatrix().mat, 1, false);
-        
-        //if (uniforms->viewMatrix != nullptr)
-        //    uniforms->viewMatrix->setMatrix4 (getViewMatrix().mat, 1, false);
         
         if (uniforms->resolution != nullptr)
-            uniforms->resolution->set ((GLfloat) renderingScale * getWidth(), (GLfloat) renderingScale * getHeight(), (GLfloat) renderingScale * getWidth() * getHeight());
+            uniforms->resolution->set ((GLfloat) renderingScale * getWidth(), (GLfloat) renderingScale * getHeight());
             
         if (uniforms->audioSampleData != nullptr)
             uniforms->audioSampleData->set (audioBuffer->readSamples (256, 1), 256);    // RingBuffer Channel 0 still doesn't work lolz what the crap
@@ -188,8 +180,6 @@ public:
     
     void resized () override
     {
-        draggableOrientation.setViewport (getLocalBounds());
-        
         // Resize Status Label text
         // This is overdone, make this like 1 line later
         Rectangle<int> area (getLocalBounds().reduced (4));
@@ -197,51 +187,11 @@ public:
         statusLabel.setBounds (top);
     }
     
-    void mouseDown (const MouseEvent& e) override
-    {
-        draggableOrientation.mouseDown (e.getPosition());
-    }
-    
-    void mouseDrag (const MouseEvent& e) override
-    {
-        draggableOrientation.mouseDrag (e.getPosition());
-    }
-    
 private:
     
     //==========================================================================
     // OpenGL Functions
     
-    /** Used to Open a Shader file.
-     */
-    std::string getFileContents(const char *filename) {
-        std::ifstream inStream (filename, std::ios::in | std::ios::binary);
-        if (inStream) {
-            std::string contents;
-            inStream.seekg (0, std::ios::end);
-            contents.resize((unsigned int) inStream.tellg());
-            inStream.seekg (0, std::ios::beg);
-            inStream.read (&contents[0], contents.size());
-            inStream.close();
-            return (contents);
-        }
-        return "";
-    }
-    
-    Matrix3D<float> getProjectionMatrix() const
-    {
-        float w = 1.0f / (0.5f + 0.1f);
-        float h = w * getLocalBounds().toFloat().getAspectRatio (false);
-        return Matrix3D<float>::fromFrustum (-w, w, -h, h, 4.0f, 30.0f);
-    }
-    
-    Matrix3D<float> getViewMatrix() const
-    {
-        Matrix3D<float> viewMatrix (Vector3D<float> (0.0f, 0.0f, -10.0f));
-        Matrix3D<float> rotationMatrix = draggableOrientation.getRotationMatrix();
-        
-        return rotationMatrix * viewMatrix;
-    }
     
     /** Loads the OpenGL Shaders and sets up the whole ShaderProgram
     */
@@ -252,24 +202,14 @@ private:
         /*"attribute vec4 sourceColour;\n"
         "attribute vec2 texureCoordIn;\n"*/
         "\n"
-        //"varying vec4 destinationColour;\n"
-        //"varying vec2 textureCoordOut;\n"
-        "\n"
         "void main()\n"
         "{\n"
-        //"    destinationColour = sourceColour;\n"
-        //"    textureCoordOut = texureCoordIn;\n"
         "    gl_Position = vec4(position, 1.0);\n"
-        //"    gl_Position = projectionMatrix * viewMatrix * vec4(position, 1.0);\n"
         "}\n";
         
         fragmentShader =
-        //"varying vec4 destinationColour;\n"
-        //"varying vec2 textureCoordOut;\n"
         "uniform vec2  resolution;\n"
         "uniform float audioSampleData[256];\n"
-        //"uniform mat4 projectionMatrix;\n"
-        //"uniform mat4 viewMatrix;\n"
         "\n"
         "void getAmplitudeForXPos (in float xPos, out float audioAmplitude)\n"
         "{\n"
@@ -280,22 +220,16 @@ private:
         "   audioAmplitude = mix (audioSampleData[leftSampleIndex], audioSampleData[rightSampleIndex], fract (perfectSamplePosition));\n"
         "}\n"
         "\n"
-        "#define THICKNESS 0.008\n"
+        "#define THICKNESS 0.02\n"
         "void main()\n"
         "{\n"
         "    float y = gl_FragCoord.y / resolution.y;\n"
-        "\n"
         "    float amplitude = 0.0;\n"
         "    getAmplitudeForXPos (gl_FragCoord.x, amplitude);\n"
         "\n"
         // Centers & Reduces Wave Amplitude
         "    amplitude = 0.5 - amplitude / 3.0;\n"
-        //"    vec4 colour = vec4(0.95, 0.57, 0.03, 0.7);\n"
-        //"    gl_FragColor = colour;\n"
-        "float r = abs (THICKNESS / (amplitude-y));\n"
-        "\n"
-        //"    vec4 pos = vec4 (x, r, 0.0, 1.0);\n"
-        //"    vec4 transformedPos = projectionMatrix * viewMatrix * pos;\n"
+        "    float r = abs (THICKNESS / (amplitude-y));\n"
         "\n"
         "gl_FragColor = vec4 (r - abs (r * 0.2), r - abs (r * 0.2), r - abs (r * 0.2), 1.0);\n"
         "}\n";
@@ -437,9 +371,7 @@ private:
     
     const char* vertexShader;
     const char* fragmentShader;
-    
-    // GUI Interaction
-    Draggable3DOrientation draggableOrientation;
+
     
     // Audio Buffer
     RingBuffer<GLfloat> * audioBuffer;
@@ -450,12 +382,10 @@ private:
     // shader files to be static instead of interchangeable and dynamic.
     // String newVertexShader, newFragmentShader;
     
-    
-    
     // Overlay GUI
     Label statusLabel;
     
 };
 
 
-#endif /* Oscilloscope_h */
+#endif /* Oscilloscope2D_h */

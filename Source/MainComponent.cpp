@@ -7,8 +7,9 @@
 */
 
 #include "../JuceLibraryCode/JuceHeader.h"
-#include "Oscilloscope1.h"
+#include "Oscilloscope2D.h"
 #include "Oscilloscope.h"
+#include "Spectrum.h"
 #include "RingBuffer.h"
 
 //==============================================================================
@@ -47,8 +48,26 @@ public:
         stopButton.setColour (TextButton::buttonColourId, Colours::red);
         stopButton.setEnabled (false);
         
-        //addAndMakeVisible (&oscilloscope);
-        //oscilloscope.start();
+        addAndMakeVisible (&oscilloscope2DButton);
+        oscilloscope2DButton.setButtonText ("2D Oscilloscope");
+        oscilloscope2DButton.setColour (TextButton::buttonColourId, Colour (0xFF0C4B95));
+        oscilloscope2DButton.addListener (this);
+        oscilloscope2DButton.setToggleState (false, NotificationType::dontSendNotification);
+        
+        
+        addAndMakeVisible(&oscilloscope3DButton);
+        oscilloscope3DButton.setButtonText ("3D Oscilloscope");
+        oscilloscope3DButton.setColour (TextButton::buttonColourId, Colour (0xFF0C4B95));
+        oscilloscope3DButton.addListener (this);
+        oscilloscope3DButton.setToggleState (false, NotificationType::dontSendNotification);
+        
+        
+        addAndMakeVisible(&spectrumButton);
+        spectrumButton.setButtonText ("Spectrum");
+        spectrumButton.setColour (TextButton::buttonColourId, Colour (0xFF0C4B95));
+        spectrumButton.addListener (this);
+        spectrumButton.setToggleState (false, NotificationType::dontSendNotification);
+        
         
         setSize (800, 600); // Set Component Size
     }
@@ -71,34 +90,47 @@ public:
         // Setup Ring Buffer of GLfloat's for the visualizer to use
         ringBuffer = new RingBuffer<GLfloat> (samplesPerBlockExpected * 10, 2);  // Set default of 2 channels in the RingBuffer
         
-        // Setup Visualizers
-        //oscilloscope1 = new Oscilloscope1 (ringBuffer);
-        //addAndMakeVisible (oscilloscope1);
-        //oscilloscope1->start();
         
-        oscilloscope = new Oscilloscope (ringBuffer);
-        addAndMakeVisible (oscilloscope);
-        oscilloscope->start();
+        // Allocate all Visualizers
+        
+        oscilloscope2D = new Oscilloscope2D (ringBuffer);
+        addChildComponent (oscilloscope2D);
+        //addAndMakeVisible (oscilloscope2D);
+        //oscilloscope3D->start();
+        
+        oscilloscope3D = new Oscilloscope (ringBuffer);
+        addChildComponent (oscilloscope3D);
+        //addAndMakeVisible (oscilloscope3D);
+        //oscilloscope3D->start();
+        
+        spectrum = new Spectrum (ringBuffer);
+        addChildComponent (spectrum);
+        //addAndMakeVisible (spectrum);
+        //spectrum->start();
     }
     
     /** Called after rendering Audio. 
     */
     void releaseResources() override
     {
-        // DELETE Oscilloscope here (so make it not a scoped pointer so this works
-        /*if (oscilloscope1 != nullptr)
+        // Delete all visualizer allocations
+        if (oscilloscope2D != nullptr)
         {
-            oscilloscope1->stop();
-        }
-  
-        delete oscilloscope1;*/
-        
-        if (oscilloscope != nullptr)
-        {
-            oscilloscope->stop();
+            oscilloscope2D->stop();
+            delete oscilloscope2D;
         }
         
-        delete oscilloscope;
+        if (oscilloscope3D != nullptr)
+        {
+            oscilloscope3D->stop();
+            delete oscilloscope3D;
+        }
+        
+        if (spectrum != nullptr)
+        {
+            spectrum->stop();
+            delete spectrum;
+        }
         
         audioTransportSource.releaseResources();
         delete ringBuffer;
@@ -143,13 +175,24 @@ public:
     {
         const int w = getWidth();
         const int h = getHeight();
-
-        openButton.setBounds (10, 10, w - 20, 20);
-        playButton.setBounds (10, 40, w - 20, 20);
-        stopButton.setBounds (10, 70, w - 20, 20);
         
-        //oscilloscope1->setBounds (0, 100, w, h - 100);
-        oscilloscope->setBounds (0, 100, w, h - 100);
+        // Button Width
+        int buttonWidth = (w - 30) / 2;
+
+        openButton.setBounds (10, 10, buttonWidth, 20);
+        playButton.setBounds (10, 40, buttonWidth, 20);
+        stopButton.setBounds (10, 70, buttonWidth, 20);
+        
+        oscilloscope2DButton.setBounds (buttonWidth + 20, 10, buttonWidth, 20);
+        oscilloscope3DButton.setBounds (buttonWidth + 20, 40, buttonWidth, 20);
+        spectrumButton.setBounds (buttonWidth + 20, 70, buttonWidth, 20);
+        
+        if (oscilloscope2D != nullptr)
+            oscilloscope2D->setBounds (0, 100, w, h - 100);
+        if (oscilloscope3D != nullptr)
+            oscilloscope3D->setBounds (0, 100, w, h - 100);
+        if (spectrum != nullptr)
+            spectrum->setBounds (0, 100, w, h - 100);
     }
     
     void changeListenerCallback (ChangeBroadcaster* source) override
@@ -170,6 +213,52 @@ public:
         if (button == &openButton)  openButtonClicked();
         if (button == &playButton)  playButtonClicked();
         if (button == &stopButton)  stopButtonClicked();
+        
+        if (button == &oscilloscope2DButton)
+        {
+            button->setToggleState (true, NotificationType::dontSendNotification);
+            oscilloscope3DButton.setToggleState (false, NotificationType::dontSendNotification);
+            spectrumButton.setToggleState (false, NotificationType::dontSendNotification);
+            
+            oscilloscope2D->setVisible(true);
+            oscilloscope3D->setVisible(false);
+            spectrum->setVisible(false);
+            
+            
+            oscilloscope2D->start();
+            oscilloscope3D->stop();
+            spectrum->stop();
+        }
+        
+        if (button == &oscilloscope3DButton)
+        {
+            button->setToggleState (true, NotificationType::dontSendNotification);
+            oscilloscope2DButton.setToggleState (false, NotificationType::dontSendNotification);
+            spectrumButton.setToggleState (false, NotificationType::dontSendNotification);
+            
+            oscilloscope2D->setVisible(false);
+            oscilloscope3D->setVisible(true);
+            spectrum->setVisible(false);
+            
+            oscilloscope3D->start();
+            oscilloscope2D->stop();
+            spectrum->stop();
+        }
+        
+        if (button == &spectrumButton)
+        {
+            button->setToggleState (true, NotificationType::dontSendNotification);
+            oscilloscope2DButton.setToggleState (false, NotificationType::dontSendNotification);
+            oscilloscope3DButton.setToggleState (false, NotificationType::dontSendNotification);
+            
+            oscilloscope2D->setVisible(false);
+            oscilloscope3D->setVisible(false);
+            spectrum->setVisible(true);
+            
+            spectrum->start();
+            oscilloscope3D->stop();
+            oscilloscope2D->stop();
+        }
     }
     
 private:
@@ -280,6 +369,10 @@ private:
     TextButton playButton;
     TextButton stopButton;
     
+    TextButton oscilloscope2DButton;
+    TextButton oscilloscope3DButton;
+    TextButton spectrumButton;
+    
     // Audio File Reading Variables
     AudioFormatManager formatManager;
     ScopedPointer<AudioFormatReaderSource> audioReaderSource;
@@ -290,9 +383,9 @@ private:
     RingBuffer<float> * ringBuffer;
     
     // Visualizers
-    //Oscilloscope1 * oscilloscope1;
-    
-    Oscilloscope * oscilloscope;
+    Oscilloscope2D * oscilloscope2D;
+    Oscilloscope * oscilloscope3D;
+    Spectrum * spectrum;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (MainContentComponent)
 };
