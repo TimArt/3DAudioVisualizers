@@ -20,6 +20,7 @@ class Spectrum :    public Component,
     
 public:
     Spectrum (RingBuffer<GLfloat> * audioBuffer)
+    : forwardFFT (fftOrder, false)
     {
         // Set's the version to 3.2
         openGLContext.setOpenGLVersionRequired (OpenGLContext::OpenGLVersion::openGL3_2);
@@ -28,6 +29,9 @@ public:
         
         // Set default 3D orientation
         draggableOrientation.reset(Vector3D<float>(0.0, 1.0, 0.0));
+        
+        // Allocate FFT data
+        fftData = new GLfloat [2 * fftSize];
         
         // Attach and start OpenGL
         openGLContext.setRenderer(this);
@@ -45,6 +49,7 @@ public:
         openGLContext.setContinuousRepainting (false);
         openGLContext.detach();
         
+        delete [] fftData;
         
         // Detach AudioBuffer
         audioBuffer = nullptr;
@@ -74,11 +79,11 @@ public:
     void newOpenGLContextCreated() override
     {
         // Setup Sizing Variables
-        xFreqWidth = 1.0f;
+        xFreqWidth = 3.0f;
         yAmpHeight = 1.0f;
-        zTimeDepth = 1.0f;
-        xFreqResolution = 2;
-        zTimeResolution = 2;
+        zTimeDepth = 3.0f;
+        xFreqResolution = 50;
+        zTimeResolution = 60;
 
         numVertices = xFreqResolution * zTimeResolution;
         
@@ -91,11 +96,12 @@ public:
         // Setup Buffer Objects
         openGLContext.extensions.glGenBuffers (1, &xzVBO); // Vertex Buffer Object
         openGLContext.extensions.glBindBuffer(GL_ARRAY_BUFFER, xzVBO);
-        openGLContext.extensions.glBufferData(GL_ARRAY_BUFFER, sizeof(xzVertices), xzVertices, GL_STATIC_DRAW);
+        openGLContext.extensions.glBufferData(GL_ARRAY_BUFFER, sizeof(GLfloat) * numVertices * 2, xzVertices, GL_STATIC_DRAW);
+        
         
         openGLContext.extensions.glGenBuffers (1, &yVBO);
         openGLContext.extensions.glBindBuffer(GL_ARRAY_BUFFER, yVBO);
-        openGLContext.extensions.glBufferData(GL_ARRAY_BUFFER, sizeof(yVertices), yVertices, GL_STREAM_DRAW);
+        openGLContext.extensions.glBufferData(GL_ARRAY_BUFFER, sizeof(GLfloat) * numVertices, yVertices, GL_STREAM_DRAW);
         
         openGLContext.extensions.glGenVertexArrays(1, &VAO);
         openGLContext.extensions.glBindVertexArray(VAO);
@@ -106,6 +112,8 @@ public:
         
         openGLContext.extensions.glEnableVertexAttribArray(0);
         openGLContext.extensions.glEnableVertexAttribArray(1);
+        
+        glPointSize (6.0f);
         
         // Setup Shaders
         createShaders();
@@ -146,34 +154,75 @@ public:
         // Use Shader Program that's been defined
         shader->use();
         
+        // Copy new audio into FFT
+        GLfloat * audioSamples = audioBuffer->readSamples (256, 1);
+        memcpy (fftData, audioSamples, 256 * sizeof (GLfloat));
+        delete [] audioSamples;
+        
+        // Calculate FFT Crap
+        forwardFFT.performFrequencyOnlyForwardTransform (fftData);
+        
+        // find the range of values produced, so we can scale our rendering to
+        // show up the detail clearly
+        Range<float> maxFFTLevel = FloatVectorOperations::findMinAndMax (fftData, fftSize / 2);
+        
+        // Calculate new y values and shift old y values back
+        for (int i = numVertices; i >= 0; --i)
+        {
+            // For the first row of points, render the new height via the FFT
+            if (i < xFreqResolution)
+            {
+                const float skewedProportionY = 1.0f - std::exp (std::log (i / ((float) xFreqResolution - 1.0f)) * 0.2f);
+                const int fftDataIndex = jlimit (0, fftSize / 2, (int) (skewedProportionY * fftSize / 2));
+                //const int fftDataIndex = jlimit (0, fftSize / 2, (int) (i * fftSize / 2));
+                float level = 0.0f;
+                if (maxFFTLevel.getEnd() != 0.0f)
+                    level = jmap (fftData[fftDataIndex], 0.0f, maxFFTLevel.getEnd(), 0.0f, yAmpHeight);
+                
+                yVertices[i] = level;
+            }
+            else // For the subsequent rows, shift back
+            {
+                yVertices[i] = yVertices[i - xFreqResolution];
+            }
+        }
+        
+        openGLContext.extensions.glBindBuffer(GL_ARRAY_BUFFER, yVBO);
+        openGLContext.extensions.glBufferData(GL_ARRAY_BUFFER, sizeof(GLfloat) * numVertices, yVertices, GL_STREAM_DRAW);
+        
+        
         // Setup the Uniforms for use in the Shader
         if (uniforms->projectionMatrix != nullptr)
             uniforms->projectionMatrix->setMatrix4 (getProjectionMatrix().mat, 1, false);
         
         if (uniforms->viewMatrix != nullptr)
         {
-            uniforms->viewMatrix->setMatrix4 (getViewMatrix().mat, 1, false);
+            //uniforms->viewMatrix->setMatrix4 (getViewMatrix().mat, 1, false);
             // Scale and view matrix
-            /*Matrix3D<float> scale;
+            Matrix3D<float> scale;
             scale.mat[0] = 2.0;
             scale.mat[5] = 2.0;
             scale.mat[10] = 2.0;
             Matrix3D<float> finalMatrix = scale * getViewMatrix();
             uniforms->viewMatrix->setMatrix4 (finalMatrix.mat, 1, false);
-            */
+            
         }
         
-        if (uniforms->resolution != nullptr)
-            uniforms->resolution->set ((GLfloat) 100.0, (GLfloat) 100.0);
+        //if (uniforms->resolution != nullptr)
+        //    uniforms->resolution->set ((GLfloat) 100.0, (GLfloat) 100.0);
         //uniforms->resolution->set ((GLfloat) renderingScale * getWidth(), (GLfloat) renderingScale * getHeight());
         
-        if (uniforms->audioSampleData != nullptr)
-            uniforms->audioSampleData->set (audioBuffer->readSamples (256, 1), 256); // RingBuffer Channel 0 still doesn't work lolz what the crap
+        //if (uniforms->audioSampleData != nullptr)
+        //    uniforms->audioSampleData->set (audioBuffer->readSamples (256, 1), 256); // RingBuffer Channel 0 still doesn't work lolz what the crap
         
 
         // Draw the points
         openGLContext.extensions.glBindVertexArray(VAO);
         glDrawArrays(GL_POINTS, 0, numVertices);
+        
+        
+        // Zero Out FFT for next use
+        zeromem (fftData, sizeof (GLfloat) * 2 * fftSize);
         
         // Reset the element buffers so child Components draw correctly
 //        openGLContext.extensions.glBindBuffer (GL_ARRAY_BUFFER, 0);
@@ -322,7 +371,7 @@ private:
         "out vec4 color;\n"
         "void main()\n"
         "{\n"
-        "    color = vec4 (1.0f, 1.0f, 1.0f, 1.0f);\n"
+        "    color = vec4 (1.0f, 0.0f, 2.0f, 1.0f);\n"
         "}\n";
         
 
@@ -432,14 +481,14 @@ private:
             projectionMatrix = createUniform (openGLContext, shaderProgram, "projectionMatrix");
             viewMatrix       = createUniform (openGLContext, shaderProgram, "viewMatrix");
             
-            resolution          = createUniform (openGLContext, shaderProgram, "resolution");
-            audioSampleData     = createUniform (openGLContext, shaderProgram, "audioSampleData");
+            //resolution          = createUniform (openGLContext, shaderProgram, "resolution");
+            //audioSampleData     = createUniform (openGLContext, shaderProgram, "audioSampleData");
             
         }
         
         ScopedPointer<OpenGLShaderProgram::Uniform> projectionMatrix, viewMatrix;
-        ScopedPointer<OpenGLShaderProgram::Uniform> resolution, audioSampleData;
-        ScopedPointer<OpenGLShaderProgram::Uniform> lightPosition;
+        //ScopedPointer<OpenGLShaderProgram::Uniform> /*resolution,*/ audioSampleData;
+        //ScopedPointer<OpenGLShaderProgram::Uniform> lightPosition;
         
     private:
         static OpenGLShaderProgram::Uniform* createUniform (OpenGLContext& openGLContext,
@@ -482,8 +531,16 @@ private:
     // GUI Interaction
     Draggable3DOrientation draggableOrientation;
     
-    // Audio Buffer
+    // Audio Structures
     RingBuffer<GLfloat> * audioBuffer;
+    FFT forwardFFT;
+    GLfloat * fftData;
+    // This is so that we can initialize fowardFFT in the constructor with the order
+    enum
+    {
+        fftOrder = 10,
+        fftSize  = 1 << fftOrder // set 10th bit to one
+    };
     
     // If we wanted to optionally have an interchangeable shader system,
     // this would be fairly easy to add. Chack JUCE Demo -> OpenGLDemo.cpp for

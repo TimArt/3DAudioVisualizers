@@ -3,7 +3,6 @@
 //  RingBuffer
 //
 //  Created by Tim Arterbury on 4/20/17.
-//  Copyright © 2017 TimArt. All rights reserved.
 //
 
 #ifndef RingBuffer_h

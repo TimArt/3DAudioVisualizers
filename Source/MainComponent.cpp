@@ -1,9 +1,6 @@
-/*
-  ==============================================================================
-
-    This file was auto-generated!
-
-  ==============================================================================
+/**
+    Graphics Final Project - Audio Visualizer Suite
+    Tim Arterbury & Chicago Velez
 */
 
 #include "../JuceLibraryCode/JuceHeader.h"
@@ -12,10 +9,9 @@
 #include "Spectrum.h"
 #include "RingBuffer.h"
 
-//==============================================================================
-/*
-    This component lives inside our window, and this is where you should put all
-    your controls and content.
+
+/** The MainContentComponent is the component that holds all the buttons and
+    visualizers. This component fills the entire window.
 */
 class MainContentComponent   :  public AudioAppComponent,
                                 public ChangeListener,

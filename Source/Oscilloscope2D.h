@@ -119,7 +119,8 @@ public:
         if (uniforms->audioSampleData != nullptr)
             uniforms->audioSampleData->set (audioBuffer->readSamples (256, 1), 256);    // RingBuffer Channel 0 still doesn't work lolz what the crap
         
-        
+        //!!! Yo dawg, bug problem, you not deleteing the dynamically allocated samples that
+        //!!! come from the ring buffer up here ^^
         
         // Define Vertices for a Square
         GLfloat vertices[] = {
