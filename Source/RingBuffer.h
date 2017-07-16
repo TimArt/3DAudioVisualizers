@@ -11,10 +11,9 @@
 #include "../JuceLibraryCode/JuceHeader.h"
 #include <assert.h>
 
-/** A RingBuffer for multiple channels of audio. Currenly this only safely supports one reader and one writer.
-    If we later add multiple readers, locks will be needed.
+/** A RingBuffer for multiple channels of audio. Currenly this only safely supports one reader and one writer. If I later add multiple readers, locks will be needed.
  
-    Potentially we could make a slightly more lightweight solution using a single
+    Potentially I could make a slightly more lightweight solution using a single
     dimensional array and then just access it using arithmetic. But with compiler
     optimizations and stuff, this is probably fine.
 */

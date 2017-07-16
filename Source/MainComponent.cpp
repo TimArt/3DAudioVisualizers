@@ -20,7 +20,10 @@ class MainContentComponent   :  public AudioAppComponent,
 public:
     //==============================================================================
     MainContentComponent()
-    {   
+    {
+        audioFileModeEnabled = false;
+        audioInputModeEnabled = false;
+        
         // Setup Audio
         audioTransportState = AudioTransportState::Stopped;
         formatManager.registerBasicFormats();
@@ -28,9 +31,13 @@ public:
         setAudioChannels (2, 2); // Initially Stereo Input to Stereo Output
         
         // Setup GUI
-        addAndMakeVisible (&openButton);
-        openButton.setButtonText ("Open...");
-        openButton.addListener (this);
+        addAndMakeVisible (&openFileButton);
+        openFileButton.setButtonText ("Open File");
+        openFileButton.addListener (this);
+        
+        addAndMakeVisible (&audioInputButton);
+        audioInputButton.setButtonText ("Mic Input");
+        audioInputButton.addListener (this);
         
         addAndMakeVisible (&playButton);
         playButton.setButtonText ("Play");
@@ -91,18 +98,12 @@ public:
         
         oscilloscope2D = new Oscilloscope2D (ringBuffer);
         addChildComponent (oscilloscope2D);
-        //addAndMakeVisible (oscilloscope2D);
-        //oscilloscope3D->start();
         
         oscilloscope3D = new Oscilloscope (ringBuffer);
         addChildComponent (oscilloscope3D);
-        //addAndMakeVisible (oscilloscope3D);
-        //oscilloscope3D->start();
         
         spectrum = new Spectrum (ringBuffer);
         addChildComponent (spectrum);
-        //addAndMakeVisible (spectrum);
-        //spectrum->start();
     }
     
     /** Called after rendering Audio. 
@@ -136,13 +137,15 @@ public:
     */
     void getNextAudioBlock (const AudioSourceChannelInfo& bufferToFill) override
     {
-        if (audioReaderSource == nullptr)
+        // If no mode is enabled, do not mess with audio
+        if (!audioFileModeEnabled && !audioInputModeEnabled)
         {
             bufferToFill.clearActiveBufferRegion();
             return;
         }
         
-        audioTransportSource.getNextAudioBlock (bufferToFill);
+        if (audioFileModeEnabled)
+            audioTransportSource.getNextAudioBlock (bufferToFill);
         
         // Write to Ring Buffer
         int numChannels = bufferToFill.buffer->getNumChannels();
@@ -151,6 +154,10 @@ public:
             const float * audioData = bufferToFill.buffer->getReadPointer (i, bufferToFill.startSample);
             ringBuffer->writeSamples (audioData, bufferToFill.numSamples, i);
         }
+        
+        // If using mic input, clear the output so the mic input is not audible
+        if (audioInputModeEnabled)
+            bufferToFill.clearActiveBufferRegion();
     }
     
     
@@ -172,16 +179,21 @@ public:
         const int w = getWidth();
         const int h = getHeight();
         
-        // Button Width
-        int buttonWidth = (w - 30) / 2;
-
-        openButton.setBounds (10, 10, buttonWidth, 20);
-        playButton.setBounds (10, 40, buttonWidth, 20);
-        stopButton.setBounds (10, 70, buttonWidth, 20);
+        // Button Dimenstions
+        const int bWidth = (w - 30) / 2;
+        const int bHeight = 20;
+        const int bMargin = 10;
         
-        oscilloscope2DButton.setBounds (buttonWidth + 20, 10, buttonWidth, 20);
-        oscilloscope3DButton.setBounds (buttonWidth + 20, 40, buttonWidth, 20);
-        spectrumButton.setBounds (buttonWidth + 20, 70, buttonWidth, 20);
+        const int smallBWidth = bWidth / 2 - bMargin / 2;
+
+        openFileButton.setBounds (bMargin, bMargin, smallBWidth, bHeight);
+        audioInputButton.setBounds (1.5f * bMargin + bWidth / 2, bMargin, smallBWidth, bHeight);
+        playButton.setBounds (bMargin, 40, bWidth, 20);
+        stopButton.setBounds (bMargin, 70, bWidth, 20);
+        
+        oscilloscope2DButton.setBounds (bWidth + 2 * bMargin, bMargin, bWidth, bHeight);
+        oscilloscope3DButton.setBounds (bWidth + 2 * bMargin, 40, bWidth, bHeight);
+        spectrumButton.setBounds (bWidth + 2 * bMargin, 70, bWidth, bHeight);
         
         if (oscilloscope2D != nullptr)
             oscilloscope2D->setBounds (0, 100, w, h - 100);
@@ -206,11 +218,12 @@ public:
 
     void buttonClicked (Button* button) override
     {
-        if (button == &openButton)  openButtonClicked();
-        if (button == &playButton)  playButtonClicked();
-        if (button == &stopButton)  stopButtonClicked();
+        if (button == &openFileButton)  openFileButtonClicked();
+        else if (button == &audioInputButton) audioInputButtonClicked();
+        else if (button == &playButton)  playButtonClicked();
+        else if (button == &stopButton)  stopButtonClicked();
         
-        if (button == &oscilloscope2DButton)
+        else if (button == &oscilloscope2DButton)
         {
             button->setToggleState (true, NotificationType::dontSendNotification);
             oscilloscope3DButton.setToggleState (false, NotificationType::dontSendNotification);
@@ -226,7 +239,7 @@ public:
             spectrum->stop();
         }
         
-        if (button == &oscilloscope3DButton)
+        else if (button == &oscilloscope3DButton)
         {
             button->setToggleState (true, NotificationType::dontSendNotification);
             oscilloscope2DButton.setToggleState (false, NotificationType::dontSendNotification);
@@ -241,7 +254,7 @@ public:
             spectrum->stop();
         }
         
-        if (button == &spectrumButton)
+        else if (button == &spectrumButton)
         {
             button->setToggleState (true, NotificationType::dontSendNotification);
             oscilloscope2DButton.setToggleState (false, NotificationType::dontSendNotification);
@@ -316,9 +329,9 @@ private:
         }
     }
     
-    /** Triggered the openButton is clicked. It opens an audio file selected by the user.
+    /** Triggered when the openButton is clicked. It opens an audio file selected by the user.
     */
-    void openButtonClicked()
+    void openFileButtonClicked()
     {
         FileChooser chooser ("Select a Wave file to play...",
                              File::nonexistent,
@@ -335,8 +348,25 @@ private:
                 audioTransportSource.setSource (newSource, 0, nullptr, reader->sampleRate);
                 playButton.setEnabled (true);
                 audioReaderSource = newSource.release();
+                audioInputModeEnabled = false;
+                audioFileModeEnabled = true;
             }
         }
+    }
+    
+    /** Triggered when the Mic Input (Audio Input Button) is clicked. It pulls
+        audio from the computer's first two audio inputs.
+     */
+    void audioInputButtonClicked()
+    {
+        changeAudioTransportState(AudioTransportState::Stopping);
+        changeAudioTransportState(AudioTransportState::Stopped);
+        
+        audioFileModeEnabled = false;
+        audioInputModeEnabled = true;
+        
+        playButton.setEnabled (false);
+        stopButton.setEnabled (false);
     }
     
 
@@ -360,8 +390,13 @@ private:
     //==============================================================================
     // PRIVATE MEMBER VARIABLES
 
+    // App State
+    bool audioFileModeEnabled;
+    bool audioInputModeEnabled;
+    
     // GUI Buttons
-    TextButton openButton;
+    TextButton openFileButton;
+    TextButton audioInputButton;
     TextButton playButton;
     TextButton stopButton;
     

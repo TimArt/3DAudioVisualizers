@@ -229,7 +229,7 @@ private:
         "    getAmplitudeForXPos (gl_FragCoord.x, amplitude);\n"
         "\n"
         // Centers & Reduces Wave Amplitude
-        "    amplitude = 0.5 - amplitude / 3.0;\n"
+        "    amplitude = 0.5 - amplitude / 2.0;\n"
         "    float r = abs (THICKNESS / (amplitude-y));\n"
         "\n"
         "gl_FragColor = vec4 (r - abs (r * 0.2), r - abs (r * 0.2), r - abs (r * 0.2), 1.0);\n"
