@@ -1,11 +1,11 @@
 /**
     Graphics Final Project - Audio Visualizer Suite
-    Tim Arterbury & Chicago Velez
+    Tim Arterbury
 */
 
 #include "../JuceLibraryCode/JuceHeader.h"
 #include "Oscilloscope2D.h"
-#include "Oscilloscope.h"
+#include "Oscilloscope3D.h"
 #include "Spectrum.h"
 #include "RingBuffer.h"
 
@@ -91,7 +91,8 @@ public:
         audioTransportSource.prepareToPlay (samplesPerBlockExpected, sampleRate);
         
         // Setup Ring Buffer of GLfloat's for the visualizer to use
-        ringBuffer = new RingBuffer<GLfloat> (samplesPerBlockExpected * 10, 2);  // Set default of 2 channels in the RingBuffer
+        // Uses two channels
+        ringBuffer = new RingBuffer<GLfloat> (2, samplesPerBlockExpected * 10);
         
         
         // Allocate all Visualizers
@@ -99,7 +100,7 @@ public:
         oscilloscope2D = new Oscilloscope2D (ringBuffer);
         addChildComponent (oscilloscope2D);
         
-        oscilloscope3D = new Oscilloscope (ringBuffer);
+        oscilloscope3D = new Oscilloscope3D (ringBuffer);
         addChildComponent (oscilloscope3D);
         
         spectrum = new Spectrum (ringBuffer);
@@ -148,12 +149,7 @@ public:
             audioTransportSource.getNextAudioBlock (bufferToFill);
         
         // Write to Ring Buffer
-        int numChannels = bufferToFill.buffer->getNumChannels();
-        for (int i = 0; i < numChannels; ++i)
-        {
-            const float * audioData = bufferToFill.buffer->getReadPointer (i, bufferToFill.startSample);
-            ringBuffer->writeSamples (audioData, bufferToFill.numSamples, i);
-        }
+        ringBuffer->writeSamples (*bufferToFill.buffer, bufferToFill.startSample, bufferToFill.numSamples);
         
         // If using mic input, clear the output so the mic input is not audible
         if (audioInputModeEnabled)
@@ -415,7 +411,7 @@ private:
     
     // Visualizers
     Oscilloscope2D * oscilloscope2D;
-    Oscilloscope * oscilloscope3D;
+    Oscilloscope3D * oscilloscope3D;
     Spectrum * spectrum;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (MainContentComponent)

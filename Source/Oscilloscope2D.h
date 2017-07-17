@@ -6,16 +6,15 @@
 //
 //
 
-#ifndef Oscilloscope2D_h
-#define Oscilloscope2D_h
+#pragma once
 
 #include "../JuceLibraryCode/JuceHeader.h"
 #include "RingBuffer.h"
 
-/** This Oscilloscope2D uses a Shader Based Implementation.
+/** This 2D Oscilloscope uses a Fragment-Shader based implementation.
  */
 
-class Oscilloscope2D :    public Component,
+class Oscilloscope2D :  public Component,
                         public OpenGLRenderer
 {
     
@@ -23,16 +22,16 @@ public:
     
     Oscilloscope2D (RingBuffer<GLfloat> * audioBuffer)
     {
+        // Sets the OpenGL version to 3.2
+        openGLContext.setOpenGLVersionRequired (OpenGLContext::OpenGLVersion::openGL3_2);
+        
         this->audioBuffer = audioBuffer;
         
-        // Attach and start OpenGL
+        // Attach the OpenGL context but do not start [ see start() ]
         openGLContext.setRenderer(this);
         openGLContext.attachTo(*this);
-        // THIS DOES NOT START THE VISUALIZER, It must be explicitly started
-        // with the start() function.
         
-        
-        // Setup GUI Overlay Label: Status of Shaders and crap, compiler errors, etc.
+        // Setup GUI Overlay Label: Status of Shaders, compiler errors, etc.
         addAndMakeVisible (statusLabel);
         statusLabel.setJustificationType (Justification::topLeft);
         statusLabel.setFont (Font (14.0f));
@@ -40,7 +39,7 @@ public:
     
     ~Oscilloscope2D()
     {
-        // Turn of OpenGL
+        // Turn off OpenGL
         openGLContext.setContinuousRepainting (false);
         openGLContext.detach();
         
@@ -66,8 +65,8 @@ public:
     // OpenGL Callbacks
     
     /** Called before rendering OpenGL, after an OpenGLContext has been associated
-     with this OpenGLRenderer (this component is a OpenGLRenderer).
-     Implement this method to set up any GL objects that you need for rendering.
+        with this OpenGLRenderer (this component is a OpenGLRenderer).
+        Sets up GL objects that are needed for rendering.
      */
     void newOpenGLContextCreated() override
     {
@@ -80,13 +79,12 @@ public:
     }
     
     /** Called when done rendering OpenGL, as an OpenGLContext object is closing.
-     Implement this method to free any GL objects that you created during rendering.
+        Frees any GL objects created during rendering.
      */
     void openGLContextClosing() override
     {
         shader->release();
         shader = nullptr;
-        //attributes = nullptr;
         uniforms = nullptr;
     }
     
@@ -117,10 +115,19 @@ public:
             uniforms->resolution->set ((GLfloat) renderingScale * getWidth(), (GLfloat) renderingScale * getHeight());
             
         if (uniforms->audioSampleData != nullptr)
-            uniforms->audioSampleData->set (audioBuffer->readSamples (256, 1), 256);    // RingBuffer Channel 0 still doesn't work lolz what the crap
-        
-        //!!! Yo dawg, bug problem, you not deleteing the dynamically allocated samples that
-        //!!! come from the ring buffer up here ^^
+        {
+            GLfloat * samples = audioBuffer->readSamples (256, 0);
+            uniforms->audioSampleData->set (samples, 256);    // RingBuffer Channel 0 still doesn't work lolz what the crap
+            delete[] samples;
+            
+            /** DEV NOTE
+                This could be a faster realtime vistualization if I leave the
+                samples pointer up to garbage collection instead of calling new
+                and delete in the visualization thread. But there shouldn't be
+                too much of an impact, and it will not be noticable if frames are
+                dropped here and there.
+             */
+        }
         
         // Define Vertices for a Square
         GLfloat vertices[] = {
@@ -181,11 +188,7 @@ public:
     
     void resized () override
     {
-        // Resize Status Label text
-        // This is overdone, make this like 1 line later
-        Rectangle<int> area (getLocalBounds().reduced (4));
-        Rectangle<int> top (area.removeFromTop (75));
-        statusLabel.setBounds (top);
+        statusLabel.setBounds (getLocalBounds().reduced (4).removeFromTop (75));
     }
     
 private:
@@ -200,8 +203,6 @@ private:
     {
         vertexShader =
         "attribute vec3 position;\n"
-        /*"attribute vec4 sourceColour;\n"
-        "attribute vec2 texureCoordIn;\n"*/
         "\n"
         "void main()\n"
         "{\n"
@@ -242,13 +243,11 @@ private:
             && newShader->addFragmentShader (OpenGLHelpers::translateFragmentShaderToV3 (fragmentShader))
             && newShader->link())
         {
-            //attributes = nullptr;
             uniforms = nullptr;
             
             shader = newShader;
             shader->use();
             
-            //attributes = new Attributes (openGLContext, *shader);
             uniforms   = new Uniforms (openGLContext, *shader);
             
             statusText = "GLSL: v" + String (OpenGLShaderProgram::getLanguageVersion(), 2);
@@ -261,79 +260,9 @@ private:
         statusLabel.setText (statusText, dontSendNotification);
     }
     
+
     //==============================================================================
-    // This struct represents a Vertex and its associated attributes
-    /*struct Vertex
-    {
-        float position[3];
-        float normal[3];
-        float colour[4];
-        float texCoord[2];
-    };*/
-    
-    //==============================================================================
-    // This class just manages the vertex attributes that the shaders use.
-    /*struct Attributes
-    {
-        Attributes (OpenGLContext& openGLContext, OpenGLShaderProgram& shaderProgram)
-        {
-            position      = createAttribute (openGLContext, shaderProgram, "position");
-            normal        = createAttribute (openGLContext, shaderProgram, "normal");
-            sourceColour  = createAttribute (openGLContext, shaderProgram, "sourceColour");
-            texureCoordIn = createAttribute (openGLContext, shaderProgram, "texureCoordIn");
-        }
-        
-        void enable (OpenGLContext& openGLContext)
-        {
-            if (position != nullptr)
-            {
-                openGLContext.extensions.glVertexAttribPointer (position->attributeID, 3, GL_FLOAT, GL_FALSE, sizeof (Vertex), (GLvoid*)0);
-                openGLContext.extensions.glEnableVertexAttribArray (position->attributeID);
-            }
-            
-            if (normal != nullptr)
-            {
-                openGLContext.extensions.glVertexAttribPointer (normal->attributeID, 3, GL_FLOAT, GL_FALSE, sizeof (Vertex), (GLvoid*) (sizeof (float) * 3));
-                openGLContext.extensions.glEnableVertexAttribArray (normal->attributeID);
-            }
-            
-            if (sourceColour != nullptr)
-            {
-                openGLContext.extensions.glVertexAttribPointer (sourceColour->attributeID, 4, GL_FLOAT, GL_FALSE, sizeof (Vertex), (GLvoid*) (sizeof (float) * 6));
-                openGLContext.extensions.glEnableVertexAttribArray (sourceColour->attributeID);
-            }
-            
-            if (texureCoordIn != nullptr)
-            {
-                openGLContext.extensions.glVertexAttribPointer (texureCoordIn->attributeID, 2, GL_FLOAT, GL_FALSE, sizeof (Vertex), (GLvoid*) (sizeof (float) * 10));
-                openGLContext.extensions.glEnableVertexAttribArray (texureCoordIn->attributeID);
-            }
-        }
-        
-        void disable (OpenGLContext& openGLContext)
-        {
-            if (position != nullptr)       openGLContext.extensions.glDisableVertexAttribArray (position->attributeID);
-            if (normal != nullptr)         openGLContext.extensions.glDisableVertexAttribArray (normal->attributeID);
-            if (sourceColour != nullptr)   openGLContext.extensions.glDisableVertexAttribArray (sourceColour->attributeID);
-            if (texureCoordIn != nullptr)  openGLContext.extensions.glDisableVertexAttribArray (texureCoordIn->attributeID);
-        }
-        
-        ScopedPointer<OpenGLShaderProgram::Attribute> position, normal, sourceColour, texureCoordIn;
-        
-    private:
-        static OpenGLShaderProgram::Attribute* createAttribute (OpenGLContext& openGLContext,
-                                                                OpenGLShaderProgram& shader,
-                                                                const char* attributeName)
-        {
-            if (openGLContext.extensions.glGetAttribLocation (shader.getProgramID(), attributeName) < 0)
-                return nullptr;
-            
-            return new OpenGLShaderProgram::Attribute (shader, attributeName);
-        }
-    };*/
-    
-    //==============================================================================
-    // This class just manages the uniform values that the demo shaders use.
+    // This class just manages the uniform values that the fragment shader uses.
     struct Uniforms
     {
         Uniforms (OpenGLContext& openGLContext, OpenGLShaderProgram& shaderProgram)
@@ -367,8 +296,7 @@ private:
     GLuint VBO, VAO, EBO;
     
     ScopedPointer<OpenGLShaderProgram> shader;
-    //ScopedPointer<Attributes> attributes;   // The private structs handle all attributes
-    ScopedPointer<Uniforms> uniforms;       // The private structs handle all uniforms
+    ScopedPointer<Uniforms> uniforms;
     
     const char* vertexShader;
     const char* fragmentShader;
@@ -377,16 +305,18 @@ private:
     // Audio Buffer
     RingBuffer<GLfloat> * audioBuffer;
     
-    // If we wanted to optionally have an interchangeable shader system,
-    // this would be fairly easy to add. Chack JUCE Demo -> OpenGLDemo.cpp for
-    // an implementation example of this. For now, we'll just allow these
-    // shader files to be static instead of interchangeable and dynamic.
-    // String newVertexShader, newFragmentShader;
     
     // Overlay GUI
     Label statusLabel;
     
+    
+    /** DEV NOTE
+        If I wanted to optionally have an interchangeable shader system,
+        this would be fairly easy to add. Chack JUCE Demo -> OpenGLDemo.cpp for
+        an implementation example of this. For now, we'll just allow these
+        shader files to be static instead of interchangeable and dynamic.
+        String newVertexShader, newFragmentShader;
+     */
+    
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (Oscilloscope2D)
 };
-
-
-#endif /* Oscilloscope2D_h */

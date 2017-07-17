@@ -6,14 +6,16 @@
 //
 //
 
-#ifndef Spectrum_h
-#define Spectrum_h
+#pragma once
 
 #include "../JuceLibraryCode/JuceHeader.h"
 #include "RingBuffer.h"
 
-/** Frequency Spectrum visualizer.
+/** Frequency Spectrum visualizer. Uses basic shaders, and calculates all points
+    on the CPU as opposed to the OScilloscope3D which calculates points on the
+    GPU.
  */
+
 class Spectrum :    public Component,
                     public OpenGLRenderer
 {
@@ -22,7 +24,7 @@ public:
     Spectrum (RingBuffer<GLfloat> * audioBuffer)
     : forwardFFT (fftOrder, false)
     {
-        // Set's the version to 3.2
+        // Sets the version to 3.2
         openGLContext.setOpenGLVersionRequired (OpenGLContext::OpenGLVersion::openGL3_2);
      
         this->audioBuffer = audioBuffer;
@@ -33,11 +35,11 @@ public:
         // Allocate FFT data
         fftData = new GLfloat [2 * fftSize];
         
-        // Attach and start OpenGL
+        // Attach the OpenGL context but do not start [ see start() ]
         openGLContext.setRenderer(this);
         openGLContext.attachTo(*this);
         
-        // Setup GUI Overlay Label: Status of Shaders and crap, compiler errors, etc.
+        // Setup GUI Overlay Label: Status of Shaders, compiler errors, etc.
         addAndMakeVisible (statusLabel);
         statusLabel.setJustificationType (Justification::topLeft);
         statusLabel.setFont (Font (14.0f));
@@ -45,7 +47,7 @@ public:
     
     ~Spectrum()
     {
-        // Turn of OpenGL
+        // Turn off OpenGL
         openGLContext.setContinuousRepainting (false);
         openGLContext.detach();
         
@@ -73,8 +75,8 @@ public:
     // OpenGL Callbacks
     
     /** Called before rendering OpenGL, after an OpenGLContext has been associated
-     with this OpenGLRenderer (this component is a OpenGLRenderer).
-     Implement this method to set up any GL objects that you need for rendering.
+        with this OpenGLRenderer (this component is a OpenGLRenderer).
+        Sets up GL objects that are needed for rendering.
      */
     void newOpenGLContextCreated() override
     {
@@ -95,23 +97,23 @@ public:
         
         // Setup Buffer Objects
         openGLContext.extensions.glGenBuffers (1, &xzVBO); // Vertex Buffer Object
-        openGLContext.extensions.glBindBuffer(GL_ARRAY_BUFFER, xzVBO);
-        openGLContext.extensions.glBufferData(GL_ARRAY_BUFFER, sizeof(GLfloat) * numVertices * 2, xzVertices, GL_STATIC_DRAW);
+        openGLContext.extensions.glBindBuffer (GL_ARRAY_BUFFER, xzVBO);
+        openGLContext.extensions.glBufferData (GL_ARRAY_BUFFER, sizeof(GLfloat) * numVertices * 2, xzVertices, GL_STATIC_DRAW);
         
         
         openGLContext.extensions.glGenBuffers (1, &yVBO);
-        openGLContext.extensions.glBindBuffer(GL_ARRAY_BUFFER, yVBO);
-        openGLContext.extensions.glBufferData(GL_ARRAY_BUFFER, sizeof(GLfloat) * numVertices, yVertices, GL_STREAM_DRAW);
+        openGLContext.extensions.glBindBuffer (GL_ARRAY_BUFFER, yVBO);
+        openGLContext.extensions.glBufferData (GL_ARRAY_BUFFER, sizeof(GLfloat) * numVertices, yVertices, GL_STREAM_DRAW);
         
         openGLContext.extensions.glGenVertexArrays(1, &VAO);
         openGLContext.extensions.glBindVertexArray(VAO);
-        openGLContext.extensions.glBindBuffer(GL_ARRAY_BUFFER, xzVBO);
+        openGLContext.extensions.glBindBuffer (GL_ARRAY_BUFFER, xzVBO);
         openGLContext.extensions.glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(GLfloat), NULL);
-        openGLContext.extensions.glBindBuffer(GL_ARRAY_BUFFER, yVBO);
-        openGLContext.extensions.glVertexAttribPointer(1, 1, GL_FLOAT, GL_FALSE, sizeof(GLfloat), NULL);
+        openGLContext.extensions.glBindBuffer (GL_ARRAY_BUFFER, yVBO);
+        openGLContext.extensions.glVertexAttribPointer (1, 1, GL_FLOAT, GL_FALSE, sizeof(GLfloat), NULL);
         
-        openGLContext.extensions.glEnableVertexAttribArray(0);
-        openGLContext.extensions.glEnableVertexAttribArray(1);
+        openGLContext.extensions.glEnableVertexAttribArray (0);
+        openGLContext.extensions.glEnableVertexAttribArray (1);
         
         glPointSize (6.0f);
         
@@ -120,13 +122,12 @@ public:
     }
     
     /** Called when done rendering OpenGL, as an OpenGLContext object is closing.
-     Implement this method to free any GL objects that you created during rendering.
+        Frees any GL objects created during rendering.
      */
     void openGLContextClosing() override
     {
         shader->release();
         shader = nullptr;
-        //attributes = nullptr;
         uniforms = nullptr;
         
         delete [] xzVertices;
@@ -162,7 +163,7 @@ public:
         // Calculate FFT Crap
         forwardFFT.performFrequencyOnlyForwardTransform (fftData);
         
-        // find the range of values produced, so we can scale our rendering to
+        // Find the range of values produced, so we can scale our rendering to
         // show up the detail clearly
         Range<float> maxFFTLevel = FloatVectorOperations::findMinAndMax (fftData, fftSize / 2);
         
@@ -174,8 +175,8 @@ public:
             {
                 const float skewedProportionY = 1.0f - std::exp (std::log (i / ((float) xFreqResolution - 1.0f)) * 0.2f);
                 const int fftDataIndex = jlimit (0, fftSize / 2, (int) (skewedProportionY * fftSize / 2));
-                //const int fftDataIndex = jlimit (0, fftSize / 2, (int) (i * fftSize / 2));
                 float level = 0.0f;
+                
                 if (maxFFTLevel.getEnd() != 0.0f)
                     level = jmap (fftData[fftDataIndex], 0.0f, maxFFTLevel.getEnd(), 0.0f, yAmpHeight);
                 
@@ -187,8 +188,8 @@ public:
             }
         }
         
-        openGLContext.extensions.glBindBuffer(GL_ARRAY_BUFFER, yVBO);
-        openGLContext.extensions.glBufferData(GL_ARRAY_BUFFER, sizeof(GLfloat) * numVertices, yVertices, GL_STREAM_DRAW);
+        openGLContext.extensions.glBindBuffer (GL_ARRAY_BUFFER, yVBO);
+        openGLContext.extensions.glBufferData (GL_ARRAY_BUFFER, sizeof(GLfloat) * numVertices, yVertices, GL_STREAM_DRAW);
         
         
         // Setup the Uniforms for use in the Shader
@@ -197,8 +198,6 @@ public:
         
         if (uniforms->viewMatrix != nullptr)
         {
-            //uniforms->viewMatrix->setMatrix4 (getViewMatrix().mat, 1, false);
-            // Scale and view matrix
             Matrix3D<float> scale;
             scale.mat[0] = 2.0;
             scale.mat[5] = 2.0;
@@ -207,18 +206,10 @@ public:
             uniforms->viewMatrix->setMatrix4 (finalMatrix.mat, 1, false);
             
         }
-        
-        //if (uniforms->resolution != nullptr)
-        //    uniforms->resolution->set ((GLfloat) 100.0, (GLfloat) 100.0);
-        //uniforms->resolution->set ((GLfloat) renderingScale * getWidth(), (GLfloat) renderingScale * getHeight());
-        
-        //if (uniforms->audioSampleData != nullptr)
-        //    uniforms->audioSampleData->set (audioBuffer->readSamples (256, 1), 256); // RingBuffer Channel 0 still doesn't work lolz what the crap
-        
 
         // Draw the points
         openGLContext.extensions.glBindVertexArray(VAO);
-        glDrawArrays(GL_POINTS, 0, numVertices);
+        glDrawArrays (GL_POINTS, 0, numVertices);
         
         
         // Zero Out FFT for next use
@@ -234,19 +225,12 @@ public:
     //==========================================================================
     // JUCE Callbacks
     
-    void paint (Graphics& g) override
-    {
-    }
+    void paint (Graphics& g) override {}
     
     void resized () override
     {
         draggableOrientation.setViewport (getLocalBounds());
-        
-        // Resize Status Label text
-        // This is overdone, make this like 1 line later
-        Rectangle<int> area (getLocalBounds().reduced (4));
-        Rectangle<int> top (area.removeFromTop (75));
-        statusLabel.setBounds (top);
+        statusLabel.setBounds (getLocalBounds().reduced (4).removeFromTop (75));
     }
     
     void mouseDown (const MouseEvent& e) override
@@ -264,7 +248,7 @@ private:
     //==========================================================================
     // Mesh Functions
     
-    // Initialize Vertices
+    // Initialize the XZ values of vertices
     void initializeXZVertices()
     {
         
@@ -290,26 +274,14 @@ private:
             xzVertices[i] = xStart + xOffset * xFreqIndex;
             xzVertices[i + 1] = zStart + zOffset * zTimeIndex;
         }
-        
-//        std::cout << "XZVertices\n";
-//        for (int i = 0; i < numFloatsXZ; i += 2)
-//        {
-//            std::cout << xzVertices[i] << " " << xzVertices[i + 1] << '\n';
-//        }
     }
     
-    // Initialize Vertices
+    // Initialize the Y valies of vertices
     void initializeYVertices()
     {
         // Set all Y values to 0.0
         yVertices = new GLfloat [numVertices];
         memset(yVertices, 0.0f, sizeof(GLfloat) * xFreqResolution * zTimeResolution);
-        
-//        std::cout << "YVertices\n";
-//        for (int i = 0; i < numVertices; ++i)
-//        {
-//            std::cout << yVertices[i] << '\n';
-//        }
     }
     
     
@@ -318,20 +290,22 @@ private:
     
     /** Used to Open a Shader file.
      */
-    std::string getFileContents(const char *filename) {
-        std::ifstream inStream (filename, std::ios::in | std::ios::binary);
-        if (inStream) {
-            std::string contents;
-            inStream.seekg (0, std::ios::end);
-            contents.resize((unsigned int) inStream.tellg());
-            inStream.seekg (0, std::ios::beg);
-            inStream.read (&contents[0], contents.size());
-            inStream.close();
-            return (contents);
-        }
-        return "";
-    }
+//    std::string getFileContents(const char *filename) {
+//        std::ifstream inStream (filename, std::ios::in | std::ios::binary);
+//        if (inStream) {
+//            std::string contents;
+//            inStream.seekg (0, std::ios::end);
+//            contents.resize((unsigned int) inStream.tellg());
+//            inStream.seekg (0, std::ios::beg);
+//            inStream.read (&contents[0], contents.size());
+//            inStream.close();
+//            return (contents);
+//        }
+//        return "";
+//    }
     
+    /** Calculates and returns the Projection Matrix.
+     */
     Matrix3D<float> getProjectionMatrix() const
     {
         float w = 1.0f / (0.5f + 0.1f);
@@ -339,6 +313,8 @@ private:
         return Matrix3D<float>::fromFrustum (-w, w, -h, h, 4.0f, 30.0f);
     }
     
+    /** Calculates and returns the View Matrix.
+     */
     Matrix3D<float> getViewMatrix() const
     {
         Matrix3D<float> viewMatrix (Vector3D<float> (0.0f, 0.0f, -10.0f));
@@ -382,13 +358,11 @@ private:
             && newShader->addFragmentShader ((fragmentShader))
             && newShader->link())
         {
-            //attributes = nullptr;
             uniforms = nullptr;
             
             shader = newShader;
             shader->use();
             
-            //attributes = new Attributes (openGLContext, *shader);
             uniforms   = new Uniforms (openGLContext, *shader);
             
             statusText = "GLSL: v" + String (OpenGLShaderProgram::getLanguageVersion(), 2);
@@ -402,92 +376,16 @@ private:
     }
     
     //==============================================================================
-    // This struct represents a Vertex and its associated attributes
-    /*struct Vertex
-     {
-     float position[3];
-     float normal[3];
-     float colour[4];
-     float texCoord[2];
-     };*/
-    
-    //==============================================================================
-    // This class just manages the vertex attributes that the shaders use.
-    /*struct Attributes
-     {
-     Attributes (OpenGLContext& openGLContext, OpenGLShaderProgram& shaderProgram)
-     {
-     position      = createAttribute (openGLContext, shaderProgram, "position");
-     normal        = createAttribute (openGLContext, shaderProgram, "normal");
-     sourceColour  = createAttribute (openGLContext, shaderProgram, "sourceColour");
-     texureCoordIn = createAttribute (openGLContext, shaderProgram, "texureCoordIn");
-     }
-     
-     void enable (OpenGLContext& openGLContext)
-     {
-     if (position != nullptr)
-     {
-     openGLContext.extensions.glVertexAttribPointer (position->attributeID, 3, GL_FLOAT, GL_FALSE, sizeof (Vertex), (GLvoid*)0);
-     openGLContext.extensions.glEnableVertexAttribArray (position->attributeID);
-     }
-     
-     if (normal != nullptr)
-     {
-     openGLContext.extensions.glVertexAttribPointer (normal->attributeID, 3, GL_FLOAT, GL_FALSE, sizeof (Vertex), (GLvoid*) (sizeof (float) * 3));
-     openGLContext.extensions.glEnableVertexAttribArray (normal->attributeID);
-     }
-     
-     if (sourceColour != nullptr)
-     {
-     openGLContext.extensions.glVertexAttribPointer (sourceColour->attributeID, 4, GL_FLOAT, GL_FALSE, sizeof (Vertex), (GLvoid*) (sizeof (float) * 6));
-     openGLContext.extensions.glEnableVertexAttribArray (sourceColour->attributeID);
-     }
-     
-     if (texureCoordIn != nullptr)
-     {
-     openGLContext.extensions.glVertexAttribPointer (texureCoordIn->attributeID, 2, GL_FLOAT, GL_FALSE, sizeof (Vertex), (GLvoid*) (sizeof (float) * 10));
-     openGLContext.extensions.glEnableVertexAttribArray (texureCoordIn->attributeID);
-     }
-     }
-     
-     void disable (OpenGLContext& openGLContext)
-     {
-     if (position != nullptr)       openGLContext.extensions.glDisableVertexAttribArray (position->attributeID);
-     if (normal != nullptr)         openGLContext.extensions.glDisableVertexAttribArray (normal->attributeID);
-     if (sourceColour != nullptr)   openGLContext.extensions.glDisableVertexAttribArray (sourceColour->attributeID);
-     if (texureCoordIn != nullptr)  openGLContext.extensions.glDisableVertexAttribArray (texureCoordIn->attributeID);
-     }
-     
-     ScopedPointer<OpenGLShaderProgram::Attribute> position, normal, sourceColour, texureCoordIn;
-     
-     private:
-     static OpenGLShaderProgram::Attribute* createAttribute (OpenGLContext& openGLContext,
-     OpenGLShaderProgram& shader,
-     const char* attributeName)
-     {
-     if (openGLContext.extensions.glGetAttribLocation (shader.getProgramID(), attributeName) < 0)
-     return nullptr;
-     
-     return new OpenGLShaderProgram::Attribute (shader, attributeName);
-     }
-     };*/
-    
-    //==============================================================================
-    // This class just manages the uniform values that the demo shaders use.
+    // This class manages the uniform values that the shaders use.
     struct Uniforms
     {
         Uniforms (OpenGLContext& openGLContext, OpenGLShaderProgram& shaderProgram)
         {
             projectionMatrix = createUniform (openGLContext, shaderProgram, "projectionMatrix");
             viewMatrix       = createUniform (openGLContext, shaderProgram, "viewMatrix");
-            
-            //resolution          = createUniform (openGLContext, shaderProgram, "resolution");
-            //audioSampleData     = createUniform (openGLContext, shaderProgram, "audioSampleData");
-            
         }
         
         ScopedPointer<OpenGLShaderProgram::Uniform> projectionMatrix, viewMatrix;
-        //ScopedPointer<OpenGLShaderProgram::Uniform> /*resolution,*/ audioSampleData;
         //ScopedPointer<OpenGLShaderProgram::Uniform> lightPosition;
         
     private:
@@ -521,8 +419,7 @@ private:
     GLuint VAO;/*, EBO;*/
     
     ScopedPointer<OpenGLShaderProgram> shader;
-    //ScopedPointer<Attributes> attributes;   // The private structs handle all attributes
-    ScopedPointer<Uniforms> uniforms;       // The private structs handle all uniforms
+    ScopedPointer<Uniforms> uniforms;
     
     const char* vertexShader;
     const char* fragmentShader;
@@ -535,6 +432,7 @@ private:
     RingBuffer<GLfloat> * audioBuffer;
     FFT forwardFFT;
     GLfloat * fftData;
+    
     // This is so that we can initialize fowardFFT in the constructor with the order
     enum
     {
@@ -542,17 +440,16 @@ private:
         fftSize  = 1 << fftOrder // set 10th bit to one
     };
     
-    // If we wanted to optionally have an interchangeable shader system,
-    // this would be fairly easy to add. Chack JUCE Demo -> OpenGLDemo.cpp for
-    // an implementation example of this. For now, we'll just allow these
-    // shader files to be static instead of interchangeable and dynamic.
-    // String newVertexShader, newFragmentShader;
-    
     // Overlay GUI
     Label statusLabel;
     
+    /** DEV NOTE
+        If I wanted to optionally have an interchangeable shader system,
+        this would be fairly easy to add. Chack JUCE Demo -> OpenGLDemo.cpp for
+        an implementation example of this. For now, we'll just allow these
+        shader files to be static instead of interchangeable and dynamic.
+        String newVertexShader, newFragmentShader;
+     */
+    
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (Spectrum)
 };
-
-
-#endif /* Spectrum_h */
