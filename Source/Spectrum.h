@@ -21,13 +21,14 @@ class Spectrum :    public Component,
 {
     
 public:
-    Spectrum (RingBuffer<GLfloat> * audioBuffer)
-    : forwardFFT (fftOrder, false)
+    Spectrum (RingBuffer<GLfloat> * ringBuffer)
+    :   readBuffer (2, RING_BUFFER_READ_SIZE),
+        forwardFFT (fftOrder, false)
     {
         // Sets the version to 3.2
         openGLContext.setOpenGLVersionRequired (OpenGLContext::OpenGLVersion::openGL3_2);
      
-        this->audioBuffer = audioBuffer;
+        this->ringBuffer = ringBuffer;
         
         // Set default 3D orientation
         draggableOrientation.reset(Vector3D<float>(0.0, 1.0, 0.0));
@@ -53,8 +54,8 @@ public:
         
         delete [] fftData;
         
-        // Detach AudioBuffer
-        audioBuffer = nullptr;
+        // Detach ringBuffer
+        ringBuffer = nullptr;
     }
     
     //==========================================================================
@@ -155,10 +156,22 @@ public:
         // Use Shader Program that's been defined
         shader->use();
         
-        // Copy new audio into FFT
-        GLfloat * audioSamples = audioBuffer->readSamples (256, 1);
-        memcpy (fftData, audioSamples, 256 * sizeof (GLfloat));
-        delete [] audioSamples;
+        
+        // Copy data from ring buffer into FFT
+        
+        ringBuffer->readSamples (readBuffer, RING_BUFFER_READ_SIZE);
+        FloatVectorOperations::clear (fftData, RING_BUFFER_READ_SIZE);
+        
+        /** Future Feature:
+            Instead of summing channels below, keep the channels seperate and
+            lay out the spectrum so you can see the left and right channels
+            individually on either half of the spectrum.
+         */
+        // Sum channels together
+        for (int i = 0; i < 2; ++i)
+        {
+            FloatVectorOperations::add (fftData, readBuffer.getReadPointer(i, 0), RING_BUFFER_READ_SIZE);
+        }
         
         // Calculate FFT Crap
         forwardFFT.performFrequencyOnlyForwardTransform (fftData);
@@ -288,22 +301,6 @@ private:
     //==========================================================================
     // OpenGL Functions
     
-    /** Used to Open a Shader file.
-     */
-//    std::string getFileContents(const char *filename) {
-//        std::ifstream inStream (filename, std::ios::in | std::ios::binary);
-//        if (inStream) {
-//            std::string contents;
-//            inStream.seekg (0, std::ios::end);
-//            contents.resize((unsigned int) inStream.tellg());
-//            inStream.seekg (0, std::ios::beg);
-//            inStream.read (&contents[0], contents.size());
-//            inStream.close();
-//            return (contents);
-//        }
-//        return "";
-//    }
-    
     /** Calculates and returns the Projection Matrix.
      */
     Matrix3D<float> getProjectionMatrix() const
@@ -429,7 +426,8 @@ private:
     Draggable3DOrientation draggableOrientation;
     
     // Audio Structures
-    RingBuffer<GLfloat> * audioBuffer;
+    RingBuffer<GLfloat> * ringBuffer;
+    AudioBuffer<GLfloat> readBuffer;    // Stores data read from ring buffer
     FFT forwardFFT;
     GLfloat * fftData;
     

@@ -20,18 +20,21 @@
     their positions on the GPU.
  */
 
-class Oscilloscope3D :    public Component,
+#define RING_BUFFER_READ_SIZE 256
+
+class Oscilloscope3D :  public Component,
                         public OpenGLRenderer
 {
     
 public:
     
-    Oscilloscope3D (RingBuffer<GLfloat> * audioBuffer)
+    Oscilloscope3D (RingBuffer<GLfloat> * ringBuffer)
+    : readBuffer (2, RING_BUFFER_READ_SIZE)
     {
         // Sets the OpenGL version to 3.2
         openGLContext.setOpenGLVersionRequired (OpenGLContext::OpenGLVersion::openGL3_2);
         
-        this->audioBuffer = audioBuffer;
+        this->ringBuffer = ringBuffer;
         
         // Set default 3D orientation
         draggableOrientation.reset (Vector3D<float>(0.0, 1.0, 0.0));
@@ -52,8 +55,8 @@ public:
         openGLContext.setContinuousRepainting (false);
         openGLContext.detach();
         
-        // Detach AudioBuffer
-        audioBuffer = nullptr;
+        // Detach ringBuffer
+        ringBuffer = nullptr;
     }
     
     //==========================================================================
@@ -136,20 +139,21 @@ public:
         // For now, resolution is set in shader
         // if (uniforms->resolution != nullptr)
             // uniforms->resolution->set ((GLfloat) 100.0, (GLfloat) 100.0);
-            
+        
+        // Read in audio samples from ring buffer
         if (uniforms->audioSampleData != nullptr)
         {
-            GLfloat * samples = audioBuffer->readSamples (256, 1);
-            uniforms->audioSampleData->set (samples, 256);    // RingBuffer Channel 0 still doesn't work lolz what the crap
-            delete[] samples;
+            ringBuffer->readSamples (readBuffer, RING_BUFFER_READ_SIZE);
             
-            /** DEV NOTE
-             This could be a faster realtime vistualization if I leave the
-             samples pointer up to garbage collection instead of calling new
-             and delete in the visualization thread. But there shouldn't be
-             too much of an impact, and it will not be noticable if frames are
-             dropped here and there.
-             */
+            FloatVectorOperations::clear (visualizationBuffer, RING_BUFFER_READ_SIZE);
+            
+            // Sum channels together
+            for (int i = 0; i < 2; ++i)
+            {
+                FloatVectorOperations::add (visualizationBuffer, readBuffer.getReadPointer(i, 0), RING_BUFFER_READ_SIZE);
+            }
+            
+            uniforms->audioSampleData->set (visualizationBuffer, 256);
         }
         
         // Define Origin or Object 0.0
@@ -210,22 +214,6 @@ private:
     
     //==========================================================================
     // OpenGL Functions
-    
-    /** Used to Open a Shader file.
-     */
-//    std::string getFileContents(const char *filename) {
-//        std::ifstream inStream (filename, std::ios::in | std::ios::binary);
-//        if (inStream) {
-//            std::string contents;
-//            inStream.seekg (0, std::ios::end);
-//            contents.resize ((unsigned int) inStream.tellg());
-//            inStream.seekg (0, std::ios::beg);
-//            inStream.read (&contents[0], contents.size());
-//            inStream.close();
-//            return (contents);
-//        }
-//        return "";
-//    }
     
     /** Calculates and returns the Projection Matrix.
      */
@@ -529,8 +517,10 @@ private:
     // GUI Interaction
     Draggable3DOrientation draggableOrientation;
     
-    // Audio Buffer
-    RingBuffer<GLfloat> * audioBuffer;
+    // Audio Buffers
+    RingBuffer<GLfloat> * ringBuffer;
+    AudioBuffer<GLfloat> readBuffer;    // Stores data read from ring buffer
+    GLfloat visualizationBuffer [RING_BUFFER_READ_SIZE];    // Single channel to visualize
     
     // Overlay GUI
     Label statusLabel;

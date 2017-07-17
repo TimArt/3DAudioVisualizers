@@ -12,7 +12,14 @@
 #include "RingBuffer.h"
 
 /** This 2D Oscilloscope uses a Fragment-Shader based implementation.
+ 
+    Future Update: modify the fragment-shader to do some visual compression so
+    you can see both soft and loud movements easier. Currently, the most loud
+    parts of a song to a bit too far out of the frame and the soft parts don't
+    always move the wave very much.
  */
+
+#define RING_BUFFER_READ_SIZE 256
 
 class Oscilloscope2D :  public Component,
                         public OpenGLRenderer
@@ -20,12 +27,13 @@ class Oscilloscope2D :  public Component,
     
 public:
     
-    Oscilloscope2D (RingBuffer<GLfloat> * audioBuffer)
+    Oscilloscope2D (RingBuffer<GLfloat> * ringBuffer)
+    : readBuffer (2, RING_BUFFER_READ_SIZE)
     {
         // Sets the OpenGL version to 3.2
         openGLContext.setOpenGLVersionRequired (OpenGLContext::OpenGLVersion::openGL3_2);
         
-        this->audioBuffer = audioBuffer;
+        this->ringBuffer = ringBuffer;
         
         // Attach the OpenGL context but do not start [ see start() ]
         openGLContext.setRenderer(this);
@@ -43,8 +51,8 @@ public:
         openGLContext.setContinuousRepainting (false);
         openGLContext.detach();
         
-        // Detach AudioBuffer
-        audioBuffer = nullptr;
+        // Detach ringBuffer
+        ringBuffer = nullptr;
     }
     
     //==========================================================================
@@ -113,20 +121,21 @@ public:
         
         if (uniforms->resolution != nullptr)
             uniforms->resolution->set ((GLfloat) renderingScale * getWidth(), (GLfloat) renderingScale * getHeight());
-            
+        
+        // Read in samples from ring buffer
         if (uniforms->audioSampleData != nullptr)
         {
-            GLfloat * samples = audioBuffer->readSamples (256, 0);
-            uniforms->audioSampleData->set (samples, 256);    // RingBuffer Channel 0 still doesn't work lolz what the crap
-            delete[] samples;
+            ringBuffer->readSamples (readBuffer, RING_BUFFER_READ_SIZE);
             
-            /** DEV NOTE
-                This could be a faster realtime vistualization if I leave the
-                samples pointer up to garbage collection instead of calling new
-                and delete in the visualization thread. But there shouldn't be
-                too much of an impact, and it will not be noticable if frames are
-                dropped here and there.
-             */
+            FloatVectorOperations::clear (visualizationBuffer, RING_BUFFER_READ_SIZE);
+            
+            // Sum channels together
+            for (int i = 0; i < 2; ++i)
+            {
+                FloatVectorOperations::add (visualizationBuffer, readBuffer.getReadPointer(i, 0), RING_BUFFER_READ_SIZE);
+            }
+            
+            uniforms->audioSampleData->set (visualizationBuffer, 256);
         }
         
         // Define Vertices for a Square
@@ -230,7 +239,7 @@ private:
         "    getAmplitudeForXPos (gl_FragCoord.x, amplitude);\n"
         "\n"
         // Centers & Reduces Wave Amplitude
-        "    amplitude = 0.5 - amplitude / 2.0;\n"
+        "    amplitude = 0.5 - amplitude / 2.5;\n"
         "    float r = abs (THICKNESS / (amplitude-y));\n"
         "\n"
         "gl_FragColor = vec4 (r - abs (r * 0.2), r - abs (r * 0.2), r - abs (r * 0.2), 1.0);\n"
@@ -303,7 +312,10 @@ private:
 
     
     // Audio Buffer
-    RingBuffer<GLfloat> * audioBuffer;
+    RingBuffer<GLfloat> * ringBuffer;
+    AudioBuffer<GLfloat> readBuffer;    // Stores data read from ring buffer
+    GLfloat visualizationBuffer [RING_BUFFER_READ_SIZE];    // Single channel to visualize
+    
     
     
     // Overlay GUI
