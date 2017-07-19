@@ -138,7 +138,7 @@ public:
             uniforms->audioSampleData->set (visualizationBuffer, 256);
         }
         
-        // Define Vertices for a Square
+        // Define Vertices for a Square (the view plane)
         GLfloat vertices[] = {
             1.0f,   1.0f,  0.0f,  // Top Right
             1.0f,  -1.0f,  0.0f,  // Bottom Right
