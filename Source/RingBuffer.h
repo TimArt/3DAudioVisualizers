@@ -8,17 +8,12 @@
 #pragma once
 
 #include "../JuceLibraryCode/JuceHeader.h"
-#include <assert.h>
 
-/** A RingBuffer for multiple channels of audio. Currenly this only safely
-    supports one reader and one writer. If I later add multiple readers, locks
-    will be needed, since the read position would be moved around in an incorrect
-    fashion otherwise.
+/** A circular buffer for multiple channels of audio.
  
-    Potentially I could make a slightly more optimized solution using a single
-    dimensional array and then just access it using arithmetic. But with compiler
-    optimizations and stuff, this is probably fine. Plus it is easier to read
-    this way.
+    Supports a single writer and any number of readers.
+    Make sure that the number of samples read from the RingBuffer in every
+    readSamples() call is less than the buffer size specified in the constructor.
 */
 template <class Type>
 class RingBuffer
@@ -26,32 +21,40 @@ class RingBuffer
 public:
     
     /** Initializes the RingBuffer with the specified channels and size.
+     
+        @param numChannels  number of channels of audio to store in buffer
+        @param bufferSize   size of the audio buffer
      */
     RingBuffer (int numChannels, int bufferSize)
     {
         this->bufferSize = bufferSize;
         this->numChannels = numChannels;
-        audioBuffer = new AudioBuffer<Type> (numChannels, bufferSize);
         
+        audioBuffer = new AudioBuffer<Type> (numChannels, bufferSize);
         writePosition = 0;
-        readPosition = 0;
     }
     
     
     /** Writes samples to all channels in the RingBuffer.
+     
+        @param newAudioData     an audio buffer to write into the RingBuffer
+                                This AudioBuffer must have the same number of
+                                channels as specified in the RingBuffer's constructor.
+        @param startSample      the starting sample in the newAudioData to write
+                                into the RingBuffer
+        @param numSamples       the number of samples from newAudioData to write
+                                into the RingBuffer
      */
     void writeSamples (AudioBuffer<Type> & newAudioData, int startSample, int numSamples)
     {
-        int tempWritePos = writePosition.get();
-        
         for (int i = 0; i < numChannels; ++i)
         {
             // If we need to loop around the ring
-            if (tempWritePos + numSamples > bufferSize - 1)
+            if (writePosition + numSamples > bufferSize - 1)
             {
-                int samplesToEdgeOfBuffer = bufferSize - tempWritePos;
+                int samplesToEdgeOfBuffer = bufferSize - writePosition;
                 
-                audioBuffer->copyFrom (i, tempWritePos, newAudioData, i,
+                audioBuffer->copyFrom (i, writePosition, newAudioData, i,
                                        startSample, samplesToEdgeOfBuffer);
                 
                 audioBuffer->copyFrom (i, 0, newAudioData, i,
@@ -61,63 +64,66 @@ public:
             // If we stay inside the ring
             else
             {
-                audioBuffer->copyFrom (i, tempWritePos,
-                                       newAudioData, i, startSample, numSamples);
+                audioBuffer->copyFrom (i, writePosition, newAudioData, i,
+                                       startSample, numSamples);
             }
         }
         
         writePosition += numSamples;
-        writePosition = writePosition.get() % bufferSize;
+        writePosition = writePosition % bufferSize;
     }
     
     /** Reads readSize number of samples in front of the write position from all
         channels in the RingBuffer into the bufferToFill.
+     
+         @param bufferToFill    buffer to be filled with most recent audio
+                                samples from the RingBuffer
+         @param readSize        number of samples to read from the RingBuffer.
+                                Note, this must be less than the buffer size
+                                of the RingBuffer specified in the constructor.
     */
     void readSamples (AudioBuffer<Type> & bufferToFill, int readSize)
     {
-        assert (readSize < bufferSize); // Still bad to have a read size that overlaps with writing position though
-        //assert (channel < numChannels && channel >= 0);
-        
-        int tempWritePos = writePosition.get();
+        jassert (readSize < bufferSize);    // Further, it is bad to have a read size that overlaps with writing position,
+                                            // but wont't make too much of a visual problem unless it happens often.
+                                            // to combat this, the buffer size of the RingBuffer should be larger than
+                                            // the largest read size used.
         
         // Calculate readPosition based on write position
-        readPosition = tempWritePos - readSize;
+        int readPosition = writePosition - readSize;
         
-        if (readPosition.get() < 0)
-            readPosition = bufferSize + readPosition.get();
+        if (readPosition < 0)
+            readPosition = bufferSize + readPosition;
         else
-            readPosition = readPosition.get() % bufferSize;
-        
-        int tempReadPos = readPosition.get();
+            readPosition = readPosition % bufferSize;
         
         for (int i = 0; i < numChannels; ++i)
         {
             // If we need to loop around the ring
-            if (tempReadPos + readSize > bufferSize - 1)
+            if (readPosition + readSize > bufferSize - 1)
             {
-                int samplesToEdgeOfBuffer = bufferSize - tempReadPos;
+                int samplesToEdgeOfBuffer = bufferSize - readPosition;
                 
-                bufferToFill.copyFrom (i, 0, *(audioBuffer.get()), i, tempReadPos,
+                bufferToFill.copyFrom (i, 0, *(audioBuffer.get()), i, readPosition,
                                        samplesToEdgeOfBuffer);
                 
-                bufferToFill.copyFrom (i, samplesToEdgeOfBuffer, *(audioBuffer.get()), i,
-                                       tempReadPos + samplesToEdgeOfBuffer,
+                bufferToFill.copyFrom (i, samplesToEdgeOfBuffer, *(audioBuffer.get()),
+                                       i, readPosition + samplesToEdgeOfBuffer,
                                        readSize - samplesToEdgeOfBuffer);
             }
             // If we stay inside the ring
             else
             {
-                bufferToFill.copyFrom (i, 0, *(audioBuffer.get()), i, tempReadPos, readSize);
+                bufferToFill.copyFrom (i, 0, *(audioBuffer.get()), i, readPosition, readSize);
             }
         }
     }
     
 private:
-    
     int bufferSize;
     int numChannels;
     ScopedPointer<AudioBuffer<Type>> audioBuffer;
+    int writePosition;
     
-    Atomic<int> readPosition;
-    Atomic<int> writePosition;
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (RingBuffer)
 };
