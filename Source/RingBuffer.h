@@ -9,11 +9,16 @@
 
 #include "../JuceLibraryCode/JuceHeader.h"
 
-/** A circular buffer for multiple channels of audio.
+/** A circular, lock-free buffer for multiple channels of audio.
  
-    Supports a single writer and any number of readers.
+    Supports a single writer (producer) and any number of readers (consumers).
+ 
     Make sure that the number of samples read from the RingBuffer in every
-    readSamples() call is less than the buffer size specified in the constructor.
+    readSamples() call is less than the bufferSize specified in the constructor.
+ 
+    Also, ensure that the number of samples read from the RingBuffer at any time
+    plus the number of samples written to the RingBuffer at any time never exceed
+    the buffer size. This prevents read/write overlap.
 */
 template <class Type>
 class RingBuffer
@@ -49,12 +54,14 @@ public:
     {
         for (int i = 0; i < numChannels; ++i)
         {
+            const int curWritePosition = writePosition.get();
+            
             // If we need to loop around the ring
-            if (writePosition + numSamples > bufferSize - 1)
+            if (curWritePosition + numSamples > bufferSize - 1)
             {
-                int samplesToEdgeOfBuffer = bufferSize - writePosition;
+                int samplesToEdgeOfBuffer = bufferSize - curWritePosition;
                 
-                audioBuffer->copyFrom (i, writePosition, newAudioData, i,
+                audioBuffer->copyFrom (i, curWritePosition, newAudioData, i,
                                        startSample, samplesToEdgeOfBuffer);
                 
                 audioBuffer->copyFrom (i, 0, newAudioData, i,
@@ -64,13 +71,37 @@ public:
             // If we stay inside the ring
             else
             {
-                audioBuffer->copyFrom (i, writePosition, newAudioData, i,
+                audioBuffer->copyFrom (i, curWritePosition, newAudioData, i,
                                        startSample, numSamples);
             }
         }
         
         writePosition += numSamples;
-        writePosition = writePosition % bufferSize;
+        writePosition = writePosition.get() % bufferSize;
+        
+        /*
+            Although it would seem that the above two lines could cause a
+            problem for the consumer calling readsSamples() since it uses the
+            value of writePosition to calculate the readPosition, this is not
+            the case.
+            
+            1.  Since writePosition is Atomic, there will be no torn reads.
+         
+            2.  In the case that the producer only executes the line:
+        
+                    writePosition += numSamples;
+         
+                then writePosition has the posibility of being outside the
+                bounds of the buffer. If the consumer then calls readsSamples()
+                and executes the line:
+         
+                    int readPosition = (writePosition.get() % bufferSize) - readSize;
+         
+                it protects itself from an out-of-bounds writePosition by
+                calculating the modulus with the buffer size. If the
+                writePosition is outside the bounds of the buffer momentarily,
+                the consumer's call to readSamples() stays protected and accurate.
+         */
     }
     
     /** Reads readSize number of samples in front of the write position from all
@@ -84,18 +115,24 @@ public:
     */
     void readSamples (AudioBuffer<Type> & bufferToFill, int readSize)
     {
-        jassert (readSize < bufferSize);    // Further, it is bad to have a read size that overlaps with writing position,
-                                            // but wont't make too much of a visual problem unless it happens often.
-                                            // to combat this, the buffer size of the RingBuffer should be larger than
-                                            // the largest read size used.
+        // Ensure readSize does not exceed bufferSize
+        jassert (readSize < bufferSize);
         
-        // Calculate readPosition based on write position
-        int readPosition = writePosition - readSize;
+        /*
+            Further, as stated in the class comment, it is also bad to have a
+            read zone that overlaps with the writing zone, but this wont't cause
+            too much of a visual problem unless it happens often.
+            To combat this, the user should avoid having any read size and any
+            write size that when added together, exceed the bufferSize of the
+            RingBuffer.
+         */
         
+        // Calculate readPosition based on writePosition
+        int readPosition = (writePosition.get() % bufferSize) - readSize;
+        
+        // If read position goes into negative bounds, loop it around the ring
         if (readPosition < 0)
             readPosition = bufferSize + readPosition;
-        else
-            readPosition = readPosition % bufferSize;
         
         for (int i = 0; i < numChannels; ++i)
         {
@@ -123,7 +160,9 @@ private:
     int bufferSize;
     int numChannels;
     ScopedPointer<AudioBuffer<Type>> audioBuffer;
-    int writePosition;
+    Atomic<int> writePosition; // This must be atomic so the conumer does
+                               // not read it in a torn state as it is being
+                               // changed.
     
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (RingBuffer)
 };
