@@ -18,8 +18,16 @@ class MainContentComponent   :  public AudioAppComponent,
                                 public Button::Listener
 {
 public:
+    /*
+        Future Cleanup:
+            - Fix resize method cuz it coule be made simpler with rectangels.
+            - Come up with more elegant way to start/stop these visualizers. A
+              signle function to eliminate all the code reuse I have in the
+              button callbacks and such. The code is very hairy.
+     */
+    
     //==============================================================================
-    MainContentComponent()
+    MainContentComponent() : audioIOSelector(deviceManager, 1, 2, 0, 0, false, false, true, true)
     {
         audioFileModeEnabled = false;
         audioInputModeEnabled = false;
@@ -36,8 +44,12 @@ public:
         openFileButton.addListener (this);
         
         addAndMakeVisible (&audioInputButton);
-        audioInputButton.setButtonText ("Mic Input");
+        audioInputButton.setButtonText ("Audio Input");
         audioInputButton.addListener (this);
+        
+        addAndMakeVisible(&showIOSelectorButton);
+        showIOSelectorButton.setButtonText("IO");
+        showIOSelectorButton.addListener (this);
         
         addAndMakeVisible (&playButton);
         playButton.setButtonText ("Play");
@@ -50,6 +62,8 @@ public:
         stopButton.addListener (this);
         stopButton.setColour (TextButton::buttonColourId, Colours::red);
         stopButton.setEnabled (false);
+        
+        addChildComponent(audioIOSelector);
         
         addAndMakeVisible (&oscilloscope2DButton);
         oscilloscope2DButton.setButtonText ("2D Oscilloscope");
@@ -115,18 +129,21 @@ public:
         if (oscilloscope2D != nullptr)
         {
             oscilloscope2D->stop();
+            removeChildComponent (oscilloscope2D);
             delete oscilloscope2D;
         }
         
         if (oscilloscope3D != nullptr)
         {
             oscilloscope3D->stop();
+            removeChildComponent (oscilloscope3D);
             delete oscilloscope3D;
         }
         
         if (spectrum != nullptr)
         {
             spectrum->stop();
+            removeChildComponent (spectrum);
             delete spectrum;
         }
         
@@ -183,13 +200,18 @@ public:
         const int smallBWidth = bWidth / 2 - bMargin / 2;
 
         openFileButton.setBounds (bMargin, bMargin, smallBWidth, bHeight);
-        audioInputButton.setBounds (1.5f * bMargin + bWidth / 2, bMargin, smallBWidth, bHeight);
+        audioInputButton.setBounds (1.5f * bMargin + bWidth / 2, bMargin, (smallBWidth * 2/3) - bMargin / 2, bHeight);
+        showIOSelectorButton.setBounds ((1.5f * bMargin + bWidth / 2) + (smallBWidth * 2/3) + bMargin / 2, bMargin, (smallBWidth / 3) - bMargin / 2, bHeight);
         playButton.setBounds (bMargin, 40, bWidth, 20);
         stopButton.setBounds (bMargin, 70, bWidth, 20);
         
         oscilloscope2DButton.setBounds (bWidth + 2 * bMargin, bMargin, bWidth, bHeight);
         oscilloscope3DButton.setBounds (bWidth + 2 * bMargin, 40, bWidth, bHeight);
         spectrumButton.setBounds (bWidth + 2 * bMargin, 70, bWidth, bHeight);
+        
+        //Rectangle<int> ioSelectorBounds (bWidth + bMargin, 0, w - (bWidth + bMargin), 100);
+        //audioIOSelector.setBounds(ioSelectorBounds);
+        audioIOSelector.setBounds (0, 100, w, h - 100);
         
         if (oscilloscope2D != nullptr)
             oscilloscope2D->setBounds (0, 100, w, h - 100);
@@ -218,51 +240,60 @@ public:
         else if (button == &audioInputButton) audioInputButtonClicked();
         else if (button == &playButton)  playButtonClicked();
         else if (button == &stopButton)  stopButtonClicked();
+        else if (button == &showIOSelectorButton) showIOSelectorButtonClicked();
         
         else if (button == &oscilloscope2DButton)
         {
-            button->setToggleState (true, NotificationType::dontSendNotification);
+            bool buttonToggleState = !button->getToggleState();
+            button->setToggleState (buttonToggleState, NotificationType::dontSendNotification);
             oscilloscope3DButton.setToggleState (false, NotificationType::dontSendNotification);
             spectrumButton.setToggleState (false, NotificationType::dontSendNotification);
             
-            oscilloscope2D->setVisible(true);
+            audioIOSelector.setVisible(false);
+            oscilloscope2D->setVisible(buttonToggleState);
             oscilloscope3D->setVisible(false);
             spectrum->setVisible(false);
-            
             
             oscilloscope2D->start();
             oscilloscope3D->stop();
             spectrum->stop();
+            resized();
         }
         
         else if (button == &oscilloscope3DButton)
         {
-            button->setToggleState (true, NotificationType::dontSendNotification);
+            bool buttonToggleState = !button->getToggleState();
+            button->setToggleState (buttonToggleState, NotificationType::dontSendNotification);
             oscilloscope2DButton.setToggleState (false, NotificationType::dontSendNotification);
             spectrumButton.setToggleState (false, NotificationType::dontSendNotification);
             
+            audioIOSelector.setVisible(false);
             oscilloscope2D->setVisible(false);
-            oscilloscope3D->setVisible(true);
+            oscilloscope3D->setVisible(buttonToggleState);
             spectrum->setVisible(false);
             
             oscilloscope3D->start();
             oscilloscope2D->stop();
             spectrum->stop();
+            resized();
         }
         
         else if (button == &spectrumButton)
         {
-            button->setToggleState (true, NotificationType::dontSendNotification);
+            bool buttonToggleState = !button->getToggleState();
+            button->setToggleState (buttonToggleState, NotificationType::dontSendNotification);
             oscilloscope2DButton.setToggleState (false, NotificationType::dontSendNotification);
             oscilloscope3DButton.setToggleState (false, NotificationType::dontSendNotification);
             
+            audioIOSelector.setVisible(false);
             oscilloscope2D->setVisible(false);
             oscilloscope3D->setVisible(false);
-            spectrum->setVisible(true);
+            spectrum->setVisible(buttonToggleState);
             
             spectrum->start();
             oscilloscope3D->stop();
             oscilloscope2D->stop();
+            resized();
         }
     }
     
@@ -365,6 +396,56 @@ private:
         stopButton.setEnabled (false);
     }
     
+    void showIOSelectorButtonClicked()
+    {
+        oscilloscope2DButton.setToggleState(false, NotificationType::dontSendNotification);
+        oscilloscope3DButton.setToggleState(false, NotificationType::dontSendNotification);
+        spectrumButton.setToggleState(false, NotificationType::dontSendNotification);
+        
+        bool audioIOShouldBeVisibile = !audioIOSelector.isVisible();
+        
+        audioIOSelector.setVisible(audioIOShouldBeVisibile);
+        
+        if (audioIOShouldBeVisibile)
+        {
+            if (oscilloscope2D != nullptr)
+            {
+                oscilloscope2D->setVisible(false);
+                oscilloscope2D->stop();
+            }
+            
+            if (oscilloscope3D != nullptr)
+            {
+                oscilloscope3D->setVisible(false);
+                oscilloscope3D->stop();
+            }
+                
+            if (spectrum != nullptr)
+            {
+                spectrum->setVisible(false);
+                spectrum->stop();
+            }
+        }
+        else
+        {
+            if (oscilloscope2DButton.getToggleState())
+            {
+                oscilloscope3D->setVisible(true);
+                oscilloscope3D->start();
+            }
+            else if (oscilloscope3DButton.getToggleState())
+            {
+                oscilloscope3D->setVisible(true);
+                oscilloscope3D->start();
+            }
+            else if (spectrumButton.getToggleState())
+            {
+                oscilloscope3D->setVisible(true);
+                oscilloscope3D->start();
+            }
+        }
+    }
+    
 
     void playButtonClicked()
     {
@@ -393,12 +474,15 @@ private:
     // GUI Buttons
     TextButton openFileButton;
     TextButton audioInputButton;
+    TextButton showIOSelectorButton;
     TextButton playButton;
     TextButton stopButton;
     
     TextButton oscilloscope2DButton;
     TextButton oscilloscope3DButton;
     TextButton spectrumButton;
+    
+    AudioDeviceSelectorComponent audioIOSelector;
     
     // Audio File Reading Variables
     AudioFormatManager formatManager;
