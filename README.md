@@ -3,7 +3,7 @@
 ## Demonstration Video
 [![Audio Visualizer Demonstration](https://img.youtube.com/vi/rRQP3Yfpjvg/0.jpg)](https://www.youtube.com/watch?v=rRQP3Yfpjvg)
 
-https:// www.youtube.com/watch?v=rRQP3Yfpjvg
+https://www.youtube.com/watch?v=rRQP3Yfpjvg
 
 ## Description
 A 3D audio visualizer suite that reads in audio files or pulls audio from microphone input and shows visualizations rendered with OpenGL. This suite includes 3 visualizers:
