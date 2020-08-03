@@ -8,6 +8,7 @@
 #pragma once
 
 #include "../JuceLibraryCode/JuceHeader.h"
+#include <memory>
 
 /** A circular, lock-free buffer for multiple channels of audio.
  
@@ -35,7 +36,7 @@ public:
         this->bufferSize = bufferSize;
         this->numChannels = numChannels;
         
-        audioBuffer = new AudioBuffer<Type> (numChannels, bufferSize);
+        audioBuffer = std::make_unique<AudioBuffer<Type>> (numChannels, bufferSize);
         writePosition = 0;
     }
     
@@ -141,17 +142,17 @@ public:
             {
                 int samplesToEdgeOfBuffer = bufferSize - readPosition;
                 
-                bufferToFill.copyFrom (i, 0, *(audioBuffer.get()), i, readPosition,
+                bufferToFill.copyFrom (i, 0, *audioBuffer, i, readPosition,
                                        samplesToEdgeOfBuffer);
                 
-                bufferToFill.copyFrom (i, samplesToEdgeOfBuffer, *(audioBuffer.get()),
-                                       i, readPosition + samplesToEdgeOfBuffer,
+                bufferToFill.copyFrom (i, samplesToEdgeOfBuffer, *audioBuffer,
+                                       i, 0,
                                        readSize - samplesToEdgeOfBuffer);
             }
             // If we stay inside the ring
             else
             {
-                bufferToFill.copyFrom (i, 0, *(audioBuffer.get()), i, readPosition, readSize);
+                bufferToFill.copyFrom (i, 0, *audioBuffer, i, readPosition, readSize);
             }
         }
     }
@@ -159,7 +160,7 @@ public:
 private:
     int bufferSize;
     int numChannels;
-    ScopedPointer<AudioBuffer<Type>> audioBuffer;
+    std::unique_ptr<AudioBuffer<Type>> audioBuffer;
     Atomic<int> writePosition; // This must be atomic so the conumer does
                                // not read it in a torn state as it is being
                                // changed.
