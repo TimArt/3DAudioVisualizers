@@ -23,7 +23,8 @@
 #define RING_BUFFER_READ_SIZE 256
 
 class Oscilloscope3D :  public Component,
-                        public OpenGLRenderer
+                        public OpenGLRenderer,
+                        public AsyncUpdater
 {
     
 public:
@@ -57,6 +58,11 @@ public:
         
         // Detach ringBuffer
         ringBuffer = nullptr;
+    }
+    
+    void handleAsyncUpdate() override
+    {
+        statusLabel.setText (statusText, dontSendNotification);
     }
     
     //==========================================================================
@@ -94,9 +100,8 @@ public:
      */
     void openGLContextClosing() override
     {
-        waveShader->release();
-        waveShader = nullptr;
-        uniforms = nullptr;
+        waveShader.release();
+        uniforms.release();
     }
     
     
@@ -444,31 +449,25 @@ private:
         "}\n";
         
         
-        ScopedPointer<OpenGLShaderProgram> newShader (new OpenGLShaderProgram (openGLContext));
-        String statusText;
+        std::unique_ptr<OpenGLShaderProgram> shaderProgramAttempt = std::make_unique<OpenGLShaderProgram> (openGLContext);
         
-        if (newShader->addVertexShader ((vertexShader))
-            && newShader->addShader (waveGeometryShader, GL_GEOMETRY_SHADER)
-            && newShader->addFragmentShader ((fragmentShader))
-            && newShader->link())
+        if (shaderProgramAttempt->addVertexShader ((vertexShader))
+            && shaderProgramAttempt->addShader (waveGeometryShader, GL_GEOMETRY_SHADER)
+            && shaderProgramAttempt->addFragmentShader ((fragmentShader))
+            && shaderProgramAttempt->link())
         {
-            //attributes = nullptr;
-            uniforms = nullptr;
-            
-            waveShader = newShader;
-            waveShader->use();
-            
-            //attributes = new Attributes (openGLContext, *shader);
-            uniforms   = new Uniforms (openGLContext, *waveShader);
+            uniforms.reset();
+            waveShader = std::move (shaderProgramAttempt);
+            uniforms = std::make_unique<Uniforms> (openGLContext, *waveShader);
             
             statusText = "GLSL: v" + String (OpenGLShaderProgram::getLanguageVersion(), 2);
         }
         else
         {
-            statusText = newShader->getLastError();
+            statusText = shaderProgramAttempt->getLastError();
         }
         
-        statusLabel.setText (statusText, dontSendNotification);
+        triggerAsyncUpdate();
     }
     
     //==============================================================================
@@ -477,17 +476,17 @@ private:
     {
         Uniforms (OpenGLContext& openGLContext, OpenGLShaderProgram& shaderProgram)
         {
-            projectionMatrix = createUniform (openGLContext, shaderProgram, "projectionMatrix");
-            viewMatrix       = createUniform (openGLContext, shaderProgram, "viewMatrix");
+            projectionMatrix.reset (createUniform (openGLContext, shaderProgram, "projectionMatrix"));
+            viewMatrix.reset (createUniform (openGLContext, shaderProgram, "viewMatrix"));
             
-            resolution          = createUniform (openGLContext, shaderProgram, "resolution");
-            audioSampleData     = createUniform (openGLContext, shaderProgram, "audioSampleData");
+            resolution.reset (createUniform (openGLContext, shaderProgram, "resolution"));
+            audioSampleData.reset (createUniform (openGLContext, shaderProgram, "audioSampleData"));
             
         }
         
-        ScopedPointer<OpenGLShaderProgram::Uniform> projectionMatrix, viewMatrix;
-        ScopedPointer<OpenGLShaderProgram::Uniform> resolution, audioSampleData;
-        ScopedPointer<OpenGLShaderProgram::Uniform> lightPosition;
+        std::unique_ptr<OpenGLShaderProgram::Uniform> projectionMatrix, viewMatrix;
+        std::unique_ptr<OpenGLShaderProgram::Uniform> resolution, audioSampleData;
+        std::unique_ptr<OpenGLShaderProgram::Uniform> lightPosition;
         
     private:
         static OpenGLShaderProgram::Uniform* createUniform (OpenGLContext& openGLContext,
@@ -506,8 +505,8 @@ private:
     OpenGLContext openGLContext;
     GLuint VBO, VAO;/*, EBO;*/
     
-    ScopedPointer<OpenGLShaderProgram> waveShader;
-    ScopedPointer<Uniforms> uniforms;
+    std::unique_ptr<OpenGLShaderProgram> waveShader;
+    std::unique_ptr<Uniforms> uniforms;
     
     const char* vertexShader;
     const char* fragmentShader;
@@ -523,6 +522,7 @@ private:
     GLfloat visualizationBuffer [RING_BUFFER_READ_SIZE];    // Single channel to visualize
     
     // Overlay GUI
+    String statusText;
     Label statusLabel;
     
     /** DEV NOTE

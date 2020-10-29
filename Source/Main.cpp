@@ -28,7 +28,7 @@ public:
     {
         // This method is where you should put your application's initialisation code..
 
-        mainWindow = new MainWindow (getApplicationName());
+        mainWindow = std::make_unique<MainWindow> (getApplicationName());
     }
 
     void shutdown() override
@@ -94,7 +94,7 @@ public:
     };
 
 private:
-    ScopedPointer<MainWindow> mainWindow;
+    std::unique_ptr<MainWindow> mainWindow;
 };
 
 //==============================================================================

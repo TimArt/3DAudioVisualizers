@@ -17,13 +17,14 @@
  */
 
 class Spectrum :    public Component,
-                    public OpenGLRenderer
+                    public OpenGLRenderer,
+                    public AsyncUpdater
 {
     
 public:
     Spectrum (RingBuffer<GLfloat> * ringBuffer)
     :   readBuffer (2, RING_BUFFER_READ_SIZE),
-        forwardFFT (fftOrder, false)
+        forwardFFT (fftOrder)
     {
         // Sets the version to 3.2
         openGLContext.setOpenGLVersionRequired (OpenGLContext::OpenGLVersion::openGL3_2);
@@ -56,6 +57,11 @@ public:
         
         // Detach ringBuffer
         ringBuffer = nullptr;
+    }
+    
+    void handleAsyncUpdate() override
+    {
+        statusLabel.setText (statusText, dontSendNotification);
     }
     
     //==========================================================================
@@ -127,9 +133,8 @@ public:
      */
     void openGLContextClosing() override
     {
-        shader->release();
-        shader = nullptr;
-        uniforms = nullptr;
+        shader.release();
+        uniforms.release();
         
         delete [] xzVertices;
         delete [] yVertices;
@@ -348,28 +353,24 @@ private:
         "}\n";
         
 
-        ScopedPointer<OpenGLShaderProgram> newShader (new OpenGLShaderProgram (openGLContext));
-        String statusText;
+        std::unique_ptr<OpenGLShaderProgram> shaderProgramAttempt = std::make_unique<OpenGLShaderProgram> (openGLContext);
         
-        if (newShader->addVertexShader ((vertexShader))
-            && newShader->addFragmentShader ((fragmentShader))
-            && newShader->link())
+        if (shaderProgramAttempt->addVertexShader ((vertexShader))
+            && shaderProgramAttempt->addFragmentShader ((fragmentShader))
+            && shaderProgramAttempt->link())
         {
-            uniforms = nullptr;
-            
-            shader = newShader;
-            shader->use();
-            
-            uniforms   = new Uniforms (openGLContext, *shader);
+            uniforms.release();
+            shader = std::move (shaderProgramAttempt);
+            uniforms.reset (new Uniforms (openGLContext, *shader));
             
             statusText = "GLSL: v" + String (OpenGLShaderProgram::getLanguageVersion(), 2);
         }
         else
         {
-            statusText = newShader->getLastError();
+            statusText = shaderProgramAttempt->getLastError();
         }
         
-        statusLabel.setText (statusText, dontSendNotification);
+        triggerAsyncUpdate();
     }
     
     //==============================================================================
@@ -378,11 +379,11 @@ private:
     {
         Uniforms (OpenGLContext& openGLContext, OpenGLShaderProgram& shaderProgram)
         {
-            projectionMatrix = createUniform (openGLContext, shaderProgram, "projectionMatrix");
-            viewMatrix       = createUniform (openGLContext, shaderProgram, "viewMatrix");
+            projectionMatrix.reset (createUniform (openGLContext, shaderProgram, "projectionMatrix"));
+            viewMatrix.reset (createUniform (openGLContext, shaderProgram, "viewMatrix"));
         }
         
-        ScopedPointer<OpenGLShaderProgram::Uniform> projectionMatrix, viewMatrix;
+        std::unique_ptr<OpenGLShaderProgram::Uniform> projectionMatrix, viewMatrix;
         //ScopedPointer<OpenGLShaderProgram::Uniform> lightPosition;
         
     private:
@@ -415,8 +416,8 @@ private:
     GLuint yVBO;
     GLuint VAO;/*, EBO;*/
     
-    ScopedPointer<OpenGLShaderProgram> shader;
-    ScopedPointer<Uniforms> uniforms;
+    std::unique_ptr<OpenGLShaderProgram> shader;
+    std::unique_ptr<Uniforms> uniforms;
     
     const char* vertexShader;
     const char* fragmentShader;
@@ -428,7 +429,7 @@ private:
     // Audio Structures
     RingBuffer<GLfloat> * ringBuffer;
     AudioBuffer<GLfloat> readBuffer;    // Stores data read from ring buffer
-    FFT forwardFFT;
+    juce::dsp::FFT forwardFFT;
     GLfloat * fftData;
     
     // This is so that we can initialize fowardFFT in the constructor with the order
@@ -439,6 +440,7 @@ private:
     };
     
     // Overlay GUI
+    String statusText;
     Label statusLabel;
     
     /** DEV NOTE

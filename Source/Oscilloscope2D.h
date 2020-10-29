@@ -22,7 +22,8 @@
 #define RING_BUFFER_READ_SIZE 256
 
 class Oscilloscope2D :  public Component,
-                        public OpenGLRenderer
+                        public OpenGLRenderer,
+                        public AsyncUpdater
 {
     
 public:
@@ -53,6 +54,11 @@ public:
         
         // Detach ringBuffer
         ringBuffer = nullptr;
+    }
+    
+    void handleAsyncUpdate() override
+    {
+        statusLabel.setText (statusText, dontSendNotification);
     }
     
     //==========================================================================
@@ -91,9 +97,8 @@ public:
      */
     void openGLContextClosing() override
     {
-        shader->release();
-        shader = nullptr;
-        uniforms = nullptr;
+        shader.release();
+        uniforms.release();
     }
     
     
@@ -245,28 +250,25 @@ private:
         "gl_FragColor = vec4 (r - abs (r * 0.2), r - abs (r * 0.2), r - abs (r * 0.2), 1.0);\n"
         "}\n";
         
-        ScopedPointer<OpenGLShaderProgram> newShader (new OpenGLShaderProgram (openGLContext));
-        String statusText;
+        std::unique_ptr<OpenGLShaderProgram> shaderProgramAttempt = std::make_unique<OpenGLShaderProgram> (openGLContext);
         
-        if (newShader->addVertexShader (OpenGLHelpers::translateVertexShaderToV3 (vertexShader))
-            && newShader->addFragmentShader (OpenGLHelpers::translateFragmentShaderToV3 (fragmentShader))
-            && newShader->link())
+        // Sets up pipeline of shaders and compiles the program
+        if (shaderProgramAttempt->addVertexShader (OpenGLHelpers::translateVertexShaderToV3 (vertexShader))
+            && shaderProgramAttempt->addFragmentShader (OpenGLHelpers::translateFragmentShaderToV3 (fragmentShader))
+            && shaderProgramAttempt->link())
         {
-            uniforms = nullptr;
-            
-            shader = newShader;
-            shader->use();
-            
-            uniforms   = new Uniforms (openGLContext, *shader);
+            uniforms.release();
+            shader = std::move (shaderProgramAttempt);
+            uniforms.reset (new Uniforms (openGLContext, *shader));
             
             statusText = "GLSL: v" + String (OpenGLShaderProgram::getLanguageVersion(), 2);
         }
         else
         {
-            statusText = newShader->getLastError();
+            statusText = shaderProgramAttempt->getLastError();
         }
         
-        statusLabel.setText (statusText, dontSendNotification);
+        triggerAsyncUpdate();
     }
     
 
@@ -279,13 +281,13 @@ private:
             //projectionMatrix = createUniform (openGLContext, shaderProgram, "projectionMatrix");
             //viewMatrix       = createUniform (openGLContext, shaderProgram, "viewMatrix");
             
-            resolution          = createUniform (openGLContext, shaderProgram, "resolution");
-            audioSampleData     = createUniform (openGLContext, shaderProgram, "audioSampleData");
+            resolution.reset (createUniform (openGLContext, shaderProgram, "resolution"));
+            audioSampleData.reset (createUniform (openGLContext, shaderProgram, "audioSampleData"));
             
         }
         
         //ScopedPointer<OpenGLShaderProgram::Uniform> projectionMatrix, viewMatrix;
-        ScopedPointer<OpenGLShaderProgram::Uniform> resolution, audioSampleData;
+        std::unique_ptr<OpenGLShaderProgram::Uniform> resolution, audioSampleData;
         
     private:
         static OpenGLShaderProgram::Uniform* createUniform (OpenGLContext& openGLContext,
@@ -304,8 +306,8 @@ private:
     OpenGLContext openGLContext;
     GLuint VBO, VAO, EBO;
     
-    ScopedPointer<OpenGLShaderProgram> shader;
-    ScopedPointer<Uniforms> uniforms;
+    std::unique_ptr<OpenGLShaderProgram> shader;
+    std::unique_ptr<Uniforms> uniforms;
     
     const char* vertexShader;
     const char* fragmentShader;
@@ -319,6 +321,7 @@ private:
     
     
     // Overlay GUI
+    String statusText;
     Label statusLabel;
     
     

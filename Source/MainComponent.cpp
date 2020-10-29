@@ -360,9 +360,7 @@ private:
     */
     void openFileButtonClicked()
     {
-        FileChooser chooser ("Select a Wave file to play...",
-                             File::nonexistent,
-                             "*.wav");
+        FileChooser chooser ("Select a Wave file to play...", File(), "*.wav");
         
         if (chooser.browseForFileToOpen())
         {
@@ -371,10 +369,9 @@ private:
             
             if (reader != nullptr)
             {
-                ScopedPointer<AudioFormatReaderSource> newSource = new AudioFormatReaderSource (reader, true);
-                audioTransportSource.setSource (newSource, 0, nullptr, reader->sampleRate);
+                audioReaderSource.reset (new AudioFormatReaderSource (reader, true));
+                audioTransportSource.setSource (audioReaderSource.get(), 0, nullptr, reader->sampleRate);
                 playButton.setEnabled (true);
-                audioReaderSource = newSource.release();
                 audioInputModeEnabled = false;
                 audioFileModeEnabled = true;
             }
@@ -486,7 +483,7 @@ private:
     
     // Audio File Reading Variables
     AudioFormatManager formatManager;
-    ScopedPointer<AudioFormatReaderSource> audioReaderSource;
+    std::unique_ptr<AudioFormatReaderSource> audioReaderSource;
     AudioTransportSource audioTransportSource;
     AudioTransportState audioTransportState;
     

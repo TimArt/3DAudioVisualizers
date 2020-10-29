@@ -2,18 +2,19 @@
 
 <JUCERPROJECT id="eE3wBp" name="3DAudioVisualizers" displaySplashScreen="1"
               reportAppUsage="1" splashScreenColour="Dark" projectType="guiapp"
-              version="1.0.0" bundleIdentifier="com.yourcompany._3DAudioVisualizers"
-              includeBinaryInAppConfig="1" jucerVersion="5.0.2">
+              version="1.0.0" bundleIdentifier="com.yourcompany.3DAudioVisualizers"
+              includeBinaryInAppConfig="1" jucerFormatVersion="1" cppLanguageStandard="17">
   <MAINGROUP id="cW0iVO" name="3DAudioVisualizers">
     <GROUP id="{404AB558-DC85-1078-B114-B188F0F97CF8}" name="Source">
-      <FILE id="W9bqbD" name="Main.cpp" compile="1" resource="0" file="Source/Main.cpp"/>
-      <FILE id="VBGUyf" name="MainComponent.cpp" compile="1" resource="0"
+      <FILE id="uBcyGe" name="Main.cpp" compile="1" resource="0" file="Source/Main.cpp"/>
+      <FILE id="j9ZoV8" name="MainComponent.cpp" compile="1" resource="0"
             file="Source/MainComponent.cpp"/>
-      <FILE id="UBSVRq" name="Oscilloscope.h" compile="0" resource="0" file="Source/Oscilloscope.h"/>
-      <FILE id="zQsPkk" name="Oscilloscope2D.h" compile="0" resource="0"
+      <FILE id="xBfauz" name="Oscilloscope2D.h" compile="0" resource="0"
             file="Source/Oscilloscope2D.h"/>
-      <FILE id="Fvcl4x" name="RingBuffer.h" compile="0" resource="0" file="Source/RingBuffer.h"/>
-      <FILE id="DECVOh" name="Spectrum.h" compile="0" resource="0" file="Source/Spectrum.h"/>
+      <FILE id="xJ1fpl" name="Oscilloscope3D.h" compile="0" resource="0"
+            file="Source/Oscilloscope3D.h"/>
+      <FILE id="xuAmKw" name="RingBuffer.h" compile="0" resource="0" file="Source/RingBuffer.h"/>
+      <FILE id="ltLNnf" name="Spectrum.h" compile="0" resource="0" file="Source/Spectrum.h"/>
     </GROUP>
   </MAINGROUP>
   <EXPORTFORMATS>
@@ -23,20 +24,21 @@
         <CONFIGURATION name="Release" isDebug="0" optimisation="3" targetName="3DAudioVisualizers"/>
       </CONFIGURATIONS>
       <MODULEPATHS>
-        <MODULEPATH id="juce_core" path="../../SDKs/JUCE/modules"/>
-        <MODULEPATH id="juce_events" path="../../SDKs/JUCE/modules"/>
-        <MODULEPATH id="juce_graphics" path="../../SDKs/JUCE/modules"/>
-        <MODULEPATH id="juce_data_structures" path="../../SDKs/JUCE/modules"/>
-        <MODULEPATH id="juce_gui_basics" path="../../SDKs/JUCE/modules"/>
-        <MODULEPATH id="juce_gui_extra" path="../../SDKs/JUCE/modules"/>
-        <MODULEPATH id="juce_cryptography" path="../../SDKs/JUCE/modules"/>
-        <MODULEPATH id="juce_video" path="../../SDKs/JUCE/modules"/>
-        <MODULEPATH id="juce_opengl" path="../../SDKs/JUCE/modules"/>
-        <MODULEPATH id="juce_audio_devices" path="../../SDKs/JUCE/modules"/>
-        <MODULEPATH id="juce_audio_formats" path="../../SDKs/JUCE/modules"/>
-        <MODULEPATH id="juce_audio_processors" path="../../SDKs/JUCE/modules"/>
-        <MODULEPATH id="juce_audio_basics" path="../../SDKs/JUCE/modules"/>
-        <MODULEPATH id="juce_audio_utils" path="../../SDKs/JUCE/modules"/>
+        <MODULEPATH id="juce_core" path="../../SDKs/JUCE 6.0.4/modules"/>
+        <MODULEPATH id="juce_events" path="../../SDKs/JUCE 6.0.4/modules"/>
+        <MODULEPATH id="juce_graphics" path="../../SDKs/JUCE 6.0.4/modules"/>
+        <MODULEPATH id="juce_data_structures" path="../../SDKs/JUCE 6.0.4/modules"/>
+        <MODULEPATH id="juce_gui_basics" path="../../SDKs/JUCE 6.0.4/modules"/>
+        <MODULEPATH id="juce_gui_extra" path="../../SDKs/JUCE 6.0.4/modules"/>
+        <MODULEPATH id="juce_cryptography" path="../../SDKs/JUCE 6.0.4/modules"/>
+        <MODULEPATH id="juce_video" path="../../SDKs/JUCE 6.0.4/modules"/>
+        <MODULEPATH id="juce_opengl" path="../../SDKs/JUCE 6.0.4/modules"/>
+        <MODULEPATH id="juce_audio_devices" path="../../SDKs/JUCE 6.0.4/modules"/>
+        <MODULEPATH id="juce_audio_formats" path="../../SDKs/JUCE 6.0.4/modules"/>
+        <MODULEPATH id="juce_audio_processors" path="../../SDKs/JUCE 6.0.4/modules"/>
+        <MODULEPATH id="juce_audio_basics" path="../../SDKs/JUCE 6.0.4/modules"/>
+        <MODULEPATH id="juce_audio_utils" path="../../SDKs/JUCE 6.0.4/modules"/>
+        <MODULEPATH id="juce_dsp" path="../../SDKs/JUCE 6.0.4/modules"/>
       </MODULEPATHS>
     </XCODE_MAC>
     <VS2017 targetFolder="Builds/VisualStudio2017">
@@ -47,20 +49,21 @@
                        isDebug="0" optimisation="3" targetName="3DAudioVisualizers"/>
       </CONFIGURATIONS>
       <MODULEPATHS>
-        <MODULEPATH id="juce_core" path="../../SDKs/JUCE/modules"/>
-        <MODULEPATH id="juce_events" path="../../SDKs/JUCE/modules"/>
-        <MODULEPATH id="juce_graphics" path="../../SDKs/JUCE/modules"/>
-        <MODULEPATH id="juce_data_structures" path="../../SDKs/JUCE/modules"/>
-        <MODULEPATH id="juce_gui_basics" path="../../SDKs/JUCE/modules"/>
-        <MODULEPATH id="juce_gui_extra" path="../../SDKs/JUCE/modules"/>
-        <MODULEPATH id="juce_cryptography" path="../../SDKs/JUCE/modules"/>
-        <MODULEPATH id="juce_video" path="../../SDKs/JUCE/modules"/>
-        <MODULEPATH id="juce_opengl" path="../../SDKs/JUCE/modules"/>
-        <MODULEPATH id="juce_audio_devices" path="../../SDKs/JUCE/modules"/>
-        <MODULEPATH id="juce_audio_formats" path="../../SDKs/JUCE/modules"/>
-        <MODULEPATH id="juce_audio_processors" path="../../SDKs/JUCE/modules"/>
-        <MODULEPATH id="juce_audio_basics" path="../../SDKs/JUCE/modules"/>
-        <MODULEPATH id="juce_audio_utils" path="../../SDKs/JUCE/modules"/>
+        <MODULEPATH id="juce_core" path="../../SDKs/JUCE 6.0.4/modules"/>
+        <MODULEPATH id="juce_events" path="../../SDKs/JUCE 6.0.4/modules"/>
+        <MODULEPATH id="juce_graphics" path="../../SDKs/JUCE 6.0.4/modules"/>
+        <MODULEPATH id="juce_data_structures" path="../../SDKs/JUCE 6.0.4/modules"/>
+        <MODULEPATH id="juce_gui_basics" path="../../SDKs/JUCE 6.0.4/modules"/>
+        <MODULEPATH id="juce_gui_extra" path="../../SDKs/JUCE 6.0.4/modules"/>
+        <MODULEPATH id="juce_cryptography" path="../../SDKs/JUCE 6.0.4/modules"/>
+        <MODULEPATH id="juce_video" path="../../SDKs/JUCE 6.0.4/modules"/>
+        <MODULEPATH id="juce_opengl" path="../../SDKs/JUCE 6.0.4/modules"/>
+        <MODULEPATH id="juce_audio_devices" path="../../SDKs/JUCE 6.0.4/modules"/>
+        <MODULEPATH id="juce_audio_formats" path="../../SDKs/JUCE 6.0.4/modules"/>
+        <MODULEPATH id="juce_audio_processors" path="../../SDKs/JUCE 6.0.4/modules"/>
+        <MODULEPATH id="juce_audio_basics" path="../../SDKs/JUCE 6.0.4/modules"/>
+        <MODULEPATH id="juce_audio_utils" path="../../SDKs/JUCE 6.0.4/modules"/>
+        <MODULEPATH id="juce_dsp" path="../../SDKs/JUCE 6.0.4/modules"/>
       </MODULEPATHS>
     </VS2017>
     <VS2015 targetFolder="Builds/VisualStudio2015">
@@ -71,46 +74,23 @@
                        isDebug="0" optimisation="3" targetName="3DAudioVisualizers"/>
       </CONFIGURATIONS>
       <MODULEPATHS>
-        <MODULEPATH id="juce_core" path="../../SDKs/JUCE/modules"/>
-        <MODULEPATH id="juce_events" path="../../SDKs/JUCE/modules"/>
-        <MODULEPATH id="juce_graphics" path="../../SDKs/JUCE/modules"/>
-        <MODULEPATH id="juce_data_structures" path="../../SDKs/JUCE/modules"/>
-        <MODULEPATH id="juce_gui_basics" path="../../SDKs/JUCE/modules"/>
-        <MODULEPATH id="juce_gui_extra" path="../../SDKs/JUCE/modules"/>
-        <MODULEPATH id="juce_cryptography" path="../../SDKs/JUCE/modules"/>
-        <MODULEPATH id="juce_video" path="../../SDKs/JUCE/modules"/>
-        <MODULEPATH id="juce_opengl" path="../../SDKs/JUCE/modules"/>
-        <MODULEPATH id="juce_audio_devices" path="../../SDKs/JUCE/modules"/>
-        <MODULEPATH id="juce_audio_formats" path="../../SDKs/JUCE/modules"/>
-        <MODULEPATH id="juce_audio_processors" path="../../SDKs/JUCE/modules"/>
-        <MODULEPATH id="juce_audio_basics" path="../../SDKs/JUCE/modules"/>
-        <MODULEPATH id="juce_audio_utils" path="../../SDKs/JUCE/modules"/>
+        <MODULEPATH id="juce_core" path="../../SDKs/JUCE 6.0.4/modules"/>
+        <MODULEPATH id="juce_events" path="../../SDKs/JUCE 6.0.4/modules"/>
+        <MODULEPATH id="juce_graphics" path="../../SDKs/JUCE 6.0.4/modules"/>
+        <MODULEPATH id="juce_data_structures" path="../../SDKs/JUCE 6.0.4/modules"/>
+        <MODULEPATH id="juce_gui_basics" path="../../SDKs/JUCE 6.0.4/modules"/>
+        <MODULEPATH id="juce_gui_extra" path="../../SDKs/JUCE 6.0.4/modules"/>
+        <MODULEPATH id="juce_cryptography" path="../../SDKs/JUCE 6.0.4/modules"/>
+        <MODULEPATH id="juce_video" path="../../SDKs/JUCE 6.0.4/modules"/>
+        <MODULEPATH id="juce_opengl" path="../../SDKs/JUCE 6.0.4/modules"/>
+        <MODULEPATH id="juce_audio_devices" path="../../SDKs/JUCE 6.0.4/modules"/>
+        <MODULEPATH id="juce_audio_formats" path="../../SDKs/JUCE 6.0.4/modules"/>
+        <MODULEPATH id="juce_audio_processors" path="../../SDKs/JUCE 6.0.4/modules"/>
+        <MODULEPATH id="juce_audio_basics" path="../../SDKs/JUCE 6.0.4/modules"/>
+        <MODULEPATH id="juce_audio_utils" path="../../SDKs/JUCE 6.0.4/modules"/>
+        <MODULEPATH id="juce_dsp" path="../../SDKs/JUCE 6.0.4/modules"/>
       </MODULEPATHS>
     </VS2015>
-    <VS2013 targetFolder="Builds/VisualStudio2013">
-      <CONFIGURATIONS>
-        <CONFIGURATION name="Debug" winWarningLevel="4" generateManifest="1" winArchitecture="x64"
-                       isDebug="1" optimisation="1" targetName="3DAudioVisualizers"/>
-        <CONFIGURATION name="Release" winWarningLevel="4" generateManifest="1" winArchitecture="x64"
-                       isDebug="0" optimisation="3" targetName="3DAudioVisualizers"/>
-      </CONFIGURATIONS>
-      <MODULEPATHS>
-        <MODULEPATH id="juce_core" path="../../SDKs/JUCE/modules"/>
-        <MODULEPATH id="juce_events" path="../../SDKs/JUCE/modules"/>
-        <MODULEPATH id="juce_graphics" path="../../SDKs/JUCE/modules"/>
-        <MODULEPATH id="juce_data_structures" path="../../SDKs/JUCE/modules"/>
-        <MODULEPATH id="juce_gui_basics" path="../../SDKs/JUCE/modules"/>
-        <MODULEPATH id="juce_gui_extra" path="../../SDKs/JUCE/modules"/>
-        <MODULEPATH id="juce_cryptography" path="../../SDKs/JUCE/modules"/>
-        <MODULEPATH id="juce_video" path="../../SDKs/JUCE/modules"/>
-        <MODULEPATH id="juce_opengl" path="../../SDKs/JUCE/modules"/>
-        <MODULEPATH id="juce_audio_devices" path="../../SDKs/JUCE/modules"/>
-        <MODULEPATH id="juce_audio_formats" path="../../SDKs/JUCE/modules"/>
-        <MODULEPATH id="juce_audio_processors" path="../../SDKs/JUCE/modules"/>
-        <MODULEPATH id="juce_audio_basics" path="../../SDKs/JUCE/modules"/>
-        <MODULEPATH id="juce_audio_utils" path="../../SDKs/JUCE/modules"/>
-      </MODULEPATHS>
-    </VS2013>
   </EXPORTFORMATS>
   <MODULES>
     <MODULE id="juce_audio_basics" showAllCode="1" useLocalCopy="0"/>
@@ -121,6 +101,7 @@
     <MODULE id="juce_core" showAllCode="1" useLocalCopy="0"/>
     <MODULE id="juce_cryptography" showAllCode="1" useLocalCopy="0"/>
     <MODULE id="juce_data_structures" showAllCode="1" useLocalCopy="0"/>
+    <MODULE id="juce_dsp" showAllCode="1" useLocalCopy="0" useGlobalPath="0"/>
     <MODULE id="juce_events" showAllCode="1" useLocalCopy="0"/>
     <MODULE id="juce_graphics" showAllCode="1" useLocalCopy="0"/>
     <MODULE id="juce_gui_basics" showAllCode="1" useLocalCopy="0"/>
